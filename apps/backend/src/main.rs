@@ -132,7 +132,7 @@ impl IntoResponse for AppError {
 }
 
 static PROMPT_TEMPLATE: &str = r#"
-You are an expert in Mandarin and English, with over 20 years of experience. Now, you are here to help me learn reading Chinese characters by parsing the given text. Parse the given text into logical words, so that I can learn how to group the characters into words.
+You are an expert in Mandarin and English, with over 20 years of experience. Now, you are here to help me learn reading Chinese characters by parsing the given text. Parse the given text into logical words, so that I can learn how to group the characters into words. STRICTLY return the response following the format from this JSON schema: {response_schema}.
 
 The given text:
 {text}
@@ -158,7 +158,7 @@ Input:
 Output:
 {"words":[{"hanzi":"哎呀","pinyin":"āiyā","english":"Interjection of wonder, shock or admiration"},{"hanzi":"我","pinyin":"wǒ","english":"I / me"},{"hanzi":"的","pinyin":"de","english":"of; ~'s (possessive particle)"},{"hanzi":"钱包","pinyin":"qiánbāo","english":"purse / wallet"},{"hanzi":"不见","pinyin":"bùjiàn","english":"to have disappeared / to be missing"},{"hanzi":"了","pinyin":"le","english":"(completed action marker) / (modal particle indicating change of state, situation now)"}]}
 
-Some explanations for the example:
+Some explanations for this example:
 - 哎呀 (āiyā) is grouped as 1 word, because it is. Reading the sentence as 哎 (āi) and 呀 (yā) separately doesn't make any sense in this context.
 - 我 (wǒ) acts as a subject, and it stands alone.
 - 钱包 (qiánbāo) is grouped as 1 word, because the English meaning is "wallet". It is possible to group it separately, but I want to understand the character grouping (that forms a word).
@@ -171,7 +171,7 @@ Input:
 Output:
 {"words":[{"hanzi":"我","pinyin":"wǒ","english":"I / me"},{"hanzi":"的","pinyin":"de","english":"of; ~'s (possessive particle)"},{"hanzi":"考试","pinyin":"kǎoshì","english":"to take an exam / exam"},{"hanzi":"是","pinyin":"shì","english":"to be (followed by substantives only)"},{"hanzi":"在","pinyin":"zài","english":"to exist; to be alive / (of sb or sth) to be (located) at"},{"hanzi":"二零二六年","pinyin":"èrlíngèrliù nián","english":"year 2026"},{"hanzi":"六月","pinyin":"liù yuè","english":"June"},{"hanzi":"二十日","pinyin":"èrshí rì","english":"20th of (used for date)"},{"hanzi":"。","pinyin":".","english":"."},{"hanzi":"我","pinyin":"wǒ","english":"I / me"},{"hanzi":"很","pinyin":"hěn","english":"I / me"},{"hanzi":"害怕","pinyin":"hàipà","english":"to be afraid; to be scared"},{"hanzi":"了","pinyin":"le","english":"(completed action marker) / (modal particle indicating change of state, situation now)"},{"hanzi":"，","pinyin":",","english":","},{"hanzi":"因为","pinyin":"yīnwèi","english":"because"},{"hanzi":"我","pinyin":"wǒ","english":"I / me"},{"hanzi":"没有","pinyin":"méiyǒu","english":"haven't / hasn't"},{"hanzi":"读书","pinyin":"dúshū","english":"to study"}]}
 
-Some explanations for the example:
+Some explanations for this example:
 - 我 (wǒ) acts as a subject, and it stands alone.
 - 考试 (kǎoshì) is grouped as 1 word, because it is. The meaning of 考试 (kǎoshì) according to dictionary is "exam."
 - The pinyin of 二零二六年 is "èrlíngèrliù nián" because "èrlíngèrliù" means "2026" and "nián" means year. By separating the pinyin with a space, I can read the pinyin as "year of 2026", as "èrlíngèrliùnián" is quite hard for me to read.
@@ -179,7 +179,21 @@ Some explanations for the example:
 - 没有 (méiyǒu) can be translated into "don't have", but in this text it behaves more like "haven't" or "hasn't".
 - 读书 (dúshū) has several meanings, including "to read a book" or "to study". In the context of the text, it's more relevant to translate 读书 (dúshū) to "to study."
 
-STRICTLY return the response following the format from this JSON schema: {response_schema}.
+Example 4 (a sentence with a mix of Chinese words and English words):
+Input:
+在fail的边缘啊啊啊啊哭了 算了我尽力了
+
+Output:
+{"words":[{"hanzi":"在","pinyin":"zài","english":"to exist; to be alive / (of sb or sth) to be (located) at"},{"hanzi":"fail","pinyin":"fail","english":"fail"},{"hanzi":"的","pinyin":"de","english":"of; ~'s (possessive particle)"},{"hanzi":"边缘","pinyin":"biānyuán","english":"edge / brink"},{"hanzi":"啊","pinyin":"ā","english":"interjection of surprise / Ah! / Oh!"},{"hanzi":"啊","pinyin":"ā","english":"interjection of surprise / Ah! / Oh!"},{"hanzi":"啊","pinyin":"ā","english":"interjection of surprise / Ah! / Oh!"},{"hanzi":"啊","pinyin":"ā","english":"interjection of surprise / Ah! / Oh!"},{"hanzi":"哭","pinyin":"kū","english":"to cry; to weep"},{"hanzi":" ","pinyin":" ","english":" "},{"hanzi":"算了","pinyin":"suànle","english":"let it be / let it pass / forget about it"},{"hanzi":"我","pinyin":"wǒ","english":"I / me"},{"hanzi":"尽力","pinyin":"jìnlì","english":"to strive one's hardest"},{"hanzi":"了","pinyin":"le","english":"(completed action marker) / (modal particle indicating change of state, situation now)"}]}
+
+Some explanations for this example:
+- For English word, the field `hanzi` and `pinyin` are filled with the English word.
+- 边缘 (biānyuán) is grouped as 1 word, because it is. The meaning of 边缘 (biānyuán) according to dictionary is "edge" or "brink", which fits in this context (at the edge of fail).
+- 哭 (kū) stands alone as a verb, because the meaning is "crying."
+- 了 (le) after 哭 (kū) stands alone, because in this context the meaning is "completely". Combined with 哭 (kū) previously, the meaning is "completely crying."
+- 算了 (suànle) here is grouped as a word, because according to dictionary 算了 (suànle) means "let it be" or "forget about it."
+- 我 (wǒ) acts as a subject, and it stands alone.
+- 尽力 (jìnlì) is grouped as 1 word, because it is. The meaning according to dictionary is "to strive one's hardest."
 "#;
 
 #[derive(Serialize, Deserialize)]
@@ -229,7 +243,7 @@ struct OpenRouterErrorResponse {
 ///
 /// * `openrouter_base_url` - Base URL for the `OpenRouter` API.
 /// * `openrouter_api_key` - `OpenRouter` API key.
-/// * `query_prompt` - The assembled user prompt (context + JSON schema).
+/// * `prompt` - The assembled user prompt (prompt + examples + JSON schema).
 ///
 /// # Returns
 ///
