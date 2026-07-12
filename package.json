@@ -1,0 +1,32 @@
+{
+  "name": "pick-my-supervisor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "backend:start": "cd ./apps/backend && cargo run",
+    "backend:build": "cd ./apps/backend && cargo build",
+    "backend:build-release": "cd ./apps/backend && cargo build --release",
+    "backend:seed": "cd ./apps/backend && cargo run --bin seed",
+    "backend:lint": "cd ./apps/backend && cargo fmt && cargo clippy -- -D warnings",
+    "backend:fmt": "cd ./apps/backend && cargo fmt && cargo clippy --fix --allow-dirty",
+    "backend:test": "cd ./apps/backend && cargo test",
+    "frontend:start": "pnpm --filter frontend run start",
+    "frontend:deps": "pnpm --filter frontend run deps",
+    "frontend:lint": "pnpm --filter frontend run lint",
+    "frontend:fmt": "pnpm --filter frontend run lint:fix",
+    "frontend:build": "pnpm --filter frontend run build",
+    "frontend:test": "pnpm --filter frontend run test:ci"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.9.0",
+      "onFail": "download"
+    }
+  },
+  "type": "module"
+}

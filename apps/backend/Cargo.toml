@@ -1,0 +1,29 @@
+[package]
+name = "backend"
+version = "0.1.0"
+edition = "2024"
+
+[lints.rust]
+warnings = "warn"
+dead-code = "warn"
+
+[lints.clippy]
+needless_return = "allow"
+implicit_return = "forbid"
+pedantic = { level = "deny", priority = -1 }
+print_stdout = "allow"
+trivially_copy_pass_by_ref = "allow"
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
+
+[dependencies]
+backon = { version = "1", features = ["tokio-sleep"] }
+axum = "0.7"
+dotenvy = "0.15.7"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+tokio = { version = "1.0", features = ["full"] }
+tonic = { version = "0.12", default-features = false, features = ["codegen"] }
+tower-http = { version = "0.5", features = ["cors"] } # Helpful for frontend integration

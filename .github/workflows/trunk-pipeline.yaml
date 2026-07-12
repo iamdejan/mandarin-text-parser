@@ -1,0 +1,86 @@
+name: Trunk Pipeline
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  changes:
+    runs-on: ubuntu-slim
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v7
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+            frontend:
+              - 'apps/frontend/**'
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    strategy:
+      matrix:
+        os: ['ubuntu-slim']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v7
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/backend
+      - name: Run cargo fmt
+        run: cargo fmt --check
+        working-directory: apps/backend
+      - name: Run cargo clippy (release)
+        run: cargo clippy --release -- -D warnings
+        working-directory: apps/backend
+      - name: Run cargo build (release)
+        run: cargo build --release
+        working-directory: apps/backend
+      - name: Run cargo test (release)
+        run: cargo test --release
+        working-directory: apps/backend
+      - name: Upload release binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-release-binary
+          path: apps/backend/target/release/main
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: 'ubuntu-slim'
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v7
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.9.0
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.18.0'
+          check-latest: false
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check Typings
+        run: pnpm --filter frontend run type:check
+      - name: Run lint
+        run: pnpm --filter frontend run lint
+      - name: Run test
+        run: pnpm --filter frontend run test:ci

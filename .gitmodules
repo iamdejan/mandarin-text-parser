@@ -1,0 +1,3 @@
+[submodule ".kilocode/skills/rust-skills"]
+	path = .kilocode/skills/rust-skills
+	url = git@github.com:leonardomso/rust-skills.git
