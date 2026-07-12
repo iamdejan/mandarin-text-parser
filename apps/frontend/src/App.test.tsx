@@ -413,4 +413,110 @@ describe("App", function appDescribe() {
     expect(screen.getByText("你好")).toBeInTheDocument();
     expect(screen.getByText("世界")).toBeInTheDocument();
   });
+
+  // ---------- Zoom tests ----------
+
+  async function navigateToResults(
+    user: ReturnType<typeof userEvent.setup>,
+  ): Promise<void> {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+  }
+
+  it("shows zoom controls on the results page", async function showsZoomControls() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Zoom out" }),
+    ).toBeInTheDocument();
+    // Default scale indicator should be 100%.
+    expect(screen.getByText("100%")).toBeInTheDocument();
+  });
+
+  it("increases font scale when zoom in is clicked", async function increasesFontScale() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(screen.getByText("125%")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(screen.getByText("150%")).toBeInTheDocument();
+  });
+
+  it("decreases font scale when zoom out is clicked", async function decreasesFontScale() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    // Zoom in to 150% first.
+    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(screen.getByText("150%")).toBeInTheDocument();
+
+    // Then zoom out.
+    await user.click(screen.getByRole("button", { name: "Zoom out" }));
+    expect(screen.getByText("125%")).toBeInTheDocument();
+  });
+
+  it("disables zoom out button at minimum scale", async function disablesZoomOutAtMin() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    // Zoom out twice from 100% to reach min (50%).
+    await user.click(screen.getByRole("button", { name: "Zoom out" }));
+    expect(screen.getByText("75%")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Zoom out" }));
+    expect(screen.getByText("50%")).toBeInTheDocument();
+
+    const zoomOutButton = screen.getByRole("button", { name: "Zoom out" });
+    expect(zoomOutButton).toBeDisabled();
+  });
+
+  it("disables zoom in button at maximum scale", async function disablesZoomInAtMax() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    const zoomInButton = screen.getByRole("button", { name: "Zoom in" });
+    // Click 8 times to go from 100% → 300% (0.25 × 8 = 2.0).
+    for (let i = 0; i < 8; i++) {
+      await user.click(zoomInButton);
+    }
+    expect(screen.getByText("300%")).toBeInTheDocument();
+    expect(zoomInButton).toBeDisabled();
+  });
+
+  it("applies --font-scale CSS custom property to the parsed text container", async function appliesFontScaleCSS() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    // Find the container with the parsed text (the element that has
+    // the rounded border inside the main results card).
+    const parsedContainer = document.querySelector(
+      "main .rounded-md.border.border-border.p-4",
+    );
+    expect(parsedContainer).not.toBeNull();
+    if (!parsedContainer) return;
+
+    expect(
+      getComputedStyle(parsedContainer).getPropertyValue("--font-scale"),
+    ).toBe("1");
+
+    // Zoom in once — scale should update. getComputedStyle returns a
+    // snapshot, so we must re-read it after the reactive update.
+    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(
+      getComputedStyle(parsedContainer).getPropertyValue("--font-scale"),
+    ).toBe("1.25");
+  });
 });

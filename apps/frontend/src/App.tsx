@@ -37,6 +37,10 @@ export default function App(): JSX.Element {
   );
   const [view, setView] = createSignal<View>("form");
 
+  const minFontScale = 0.5;
+  const maxFontScale = 3;
+  const [fontScale, setFontScale] = createSignal(1);
+
   /**
    * Updates the text signal and the character count whenever the user
    * types in the textarea. Truncation beyond `maxChars` is prevented
@@ -126,6 +130,28 @@ export default function App(): JSX.Element {
     setActiveWordIndex((prev) => (prev === index ? null : index));
   }
 
+  /**
+   * Increments the font scale by `delta`, clamped to [minFontScale,
+   * maxFontScale]. This adjusts the --font-scale CSS custom property
+   * applied on the results container so both hanzi and pinyin resize.
+   */
+  function adjustFontScale(delta: number): void {
+    setFontScale((prev) => {
+      const next = prev + delta;
+      if (next < minFontScale) return minFontScale;
+      if (next > maxFontScale) return maxFontScale;
+      return Math.round(next * 100) / 100;
+    });
+  }
+
+  /**
+   * Formats the current font scale as a percentage string for display
+   * in the zoom indicator (e.g. "100%").
+   */
+  function fontScalePercent(): string {
+    return `${Math.round(fontScale() * 100)}%`;
+  }
+
   return (
     <div class="relative flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
       {/* Theme toggle in the top-right corner */}
@@ -148,20 +174,53 @@ export default function App(): JSX.Element {
       <Switch>
         {/* ---------- Results view ---------- */}
         <Match when={view() === "results"}>
-          <main class="w-full max-w-2xl rounded-lg border border-border bg-background p-6 shadow-sm sm:p-8">
+          <main class="w-[80%] max-w-5xl rounded-lg border border-border bg-background p-6 shadow-sm sm:p-8">
             <div class="mb-4 flex items-center justify-between">
               <h2 class="text-xl font-semibold text-foreground">
                 Parsed Result
               </h2>
-              <button
-                type="button"
-                onClick={handleCloseResults}
-                class="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                Close
-              </button>
+              <div class="flex items-center gap-2">
+                {/* Zoom controls — increase/decrease font size for the
+                    parsed hanzi + pinyin display. */}
+                <div class="flex items-center rounded-md border border-input">
+                  <button
+                    type="button"
+                    onClick={() => adjustFontScale(-0.25)}
+                    disabled={fontScale() <= minFontScale}
+                    aria-label="Zoom out"
+                    class="inline-flex items-center justify-center rounded-l-md px-2 py-1 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    −
+                  </button>
+                  <span
+                    class="px-2 py-1 text-xs tabular-nums text-muted-foreground select-none"
+                    aria-live="polite"
+                  >
+                    {fontScalePercent()}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => adjustFontScale(0.25)}
+                    disabled={fontScale() >= maxFontScale}
+                    aria-label="Zoom in"
+                    class="inline-flex items-center justify-center rounded-r-md px-2 py-1 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    +
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseResults}
+                  class="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  Close
+                </button>
+              </div>
             </div>
-            <div class="rounded-md border border-border p-4">
+            <div
+              class="rounded-md border border-border p-4"
+              style={{ "--font-scale": fontScale() } as JSX.CSSProperties}
+            >
               <p class="parsed-text leading-relaxed">
                 <For each={words()}>
                   {(word, index) => (

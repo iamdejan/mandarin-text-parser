@@ -50,13 +50,18 @@ body {
   background-color: var(--color-muted);
 }
 
+/*
+ * The results container sets --font-scale via inline style. The hanzi
+ * and pinyin sizes are computed as base * scale so the zoom buttons can
+ * adjust both in lockstep without affecting the rest of the page.
+ */
 .hanzi {
-  font-size: 1.125rem;
+  font-size: calc(1.125rem * var(--font-scale, 1));
   line-height: 1.5;
 }
 
 .pinyin {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--font-scale, 1));
   line-height: 1.25;
   color: var(--color-muted-foreground);
   /* The underbrace is drawn via a pseudo-element that creates a
