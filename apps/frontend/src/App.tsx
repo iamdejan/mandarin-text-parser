@@ -165,34 +165,41 @@ export default function App(): JSX.Element {
               <p class="parsed-text leading-relaxed">
                 <For each={words()}>
                   {(word, index) => (
-                    <span
-                      class="parsed-word relative inline-flex cursor-pointer flex-col items-center"
-                      classList={{
-                        "has-pinyin": isHanziWord(word),
-                      }}
-                      title={word.english}
-                      onClick={() => handleWordClick(index())}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          handleWordClick(index());
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`${word.hanzi}: ${word.english}`}
-                    >
-                      <span class="hanzi">{word.hanzi}</span>
-                      <Show when={isHanziWord(word)}>
-                        <span class="pinyin">{word.pinyin}</span>
-                      </Show>
-                      {/* Mobile popup */}
-                      <Show when={activeWordIndex() === index()}>
-                        <span class="word-popup" role="tooltip">
-                          {word.english}
+                    <Show
+                      when={word.hanzi === "\n"}
+                      fallback={
+                        <span
+                          class="parsed-word relative inline-flex cursor-pointer flex-col items-center"
+                          classList={{
+                            "has-pinyin": isHanziWord(word),
+                          }}
+                          title={word.english}
+                          onClick={() => handleWordClick(index())}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleWordClick(index());
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`${word.hanzi}: ${word.english}`}
+                        >
+                          <span class="hanzi">{word.hanzi}</span>
+                          <Show when={isHanziWord(word)}>
+                            <span class="pinyin">{word.pinyin}</span>
+                          </Show>
+                          {/* Mobile popup */}
+                          <Show when={activeWordIndex() === index()}>
+                            <span class="word-popup" role="tooltip">
+                              {word.english}
+                            </span>
+                          </Show>
                         </span>
-                      </Show>
-                    </span>
+                      }
+                    >
+                      <br />
+                    </Show>
                   )}
                 </For>
               </p>

@@ -376,4 +376,41 @@ describe("App", function appDescribe() {
     const tooltip = tooltips.find((t) => t.textContent === "hello");
     expect(tooltip).toBeInTheDocument();
   });
+
+  it("renders a line break for \\n word entries", async function rendersLineBreaks() {
+    // Words spanning two lines with a \n separator.
+    const multiLineWords = [
+      { hanzi: "你好", pinyin: "nǐhǎo", english: "hello" },
+      { hanzi: "\n", pinyin: "\n", english: "\n" },
+      { hanzi: "世界", pinyin: "shìjiè", english: "world" },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ words: multiLineWords }), {
+        status: 200,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText(
+      "Mandarin text",
+    ) as HTMLTextAreaElement;
+    // Set the value directly and fire an input event since JSDOM's
+    // userEvent.type does not reliably insert \n via {enter}.
+    textarea.value = "你好\n世界";
+    fireEvent.input(textarea);
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+
+    // Wait for the results page to appear.
+    await screen.findByRole("heading", { name: "Parsed Result" });
+
+    // The \n word should be rendered as a <br> element, not as a
+    // .parsed-word span.
+    const brElements = document.querySelectorAll("br");
+    expect(brElements.length).toBe(1);
+
+    // The hanzi words on either side should still be visible.
+    expect(screen.getByText("你好")).toBeInTheDocument();
+    expect(screen.getByText("世界")).toBeInTheDocument();
+  });
 });
