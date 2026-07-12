@@ -194,6 +194,8 @@ Some explanations for this example:
 - 算了 (suànle) here is grouped as a word, because according to dictionary 算了 (suànle) means "let it be" or "forget about it."
 - 我 (wǒ) acts as a subject, and it stands alone.
 - 尽力 (jìnlì) is grouped as 1 word, because it is. The meaning according to dictionary is "to strive one's hardest."
+
+No tool calls are required, just use your knowledge. DO NOT hallucinate. Make no mistakes.
 "#;
 
 #[derive(Serialize, Deserialize)]
