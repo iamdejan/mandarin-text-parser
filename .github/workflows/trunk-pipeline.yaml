@@ -24,8 +24,8 @@ jobs:
               - 'apps/frontend/**'
 
   backend:
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    # needs: changes
+    # if: needs.changes.outputs.backend == 'true'
     strategy:
       matrix:
         os: ['ubuntu-slim']
@@ -58,6 +58,37 @@ jobs:
         with:
           name: backend-release-binary
           path: apps/backend/target/release/main
+
+  backend-deploy:
+    # will be activated only after pipeline works
+    # needs: [changes, backend]
+    # if: needs.changes.outputs.backend == 'true'
+    needs: [backend]
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v7
+      - name: Download release binary
+        uses: actions/download-artifact@v8
+        with:
+          name: backend-release-binary
+          path: apps/backend/target/release/
+      - name: Make binary executable
+        run: chmod +x apps/backend/target/release/main
+      - name: Install Tree Utility
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tree
+      - name: View Backend Directory Structure
+        run: 'tree -L 3 ./apps/backend'
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v3'
+        with:
+          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}'
+      - name: 'Set up cloud SDK'
+        uses: google-github-actions/setup-gcloud@v3
+      - name: 'Deploy to Cloud Run'
+        run: 'gcloud run deploy ${{ github.event.repository.name }} --source ./apps/backend --region asia-southeast1 --allow-unauthenticated --set-env-vars HOST=${{ vars.HOST }},OPENROUTER_BASE_URL=${{ vars.OPENROUTER_BASE_URL }} --set-secrets="OPENROUTER_API_KEY=openrouter-api-key:latest"'
 
   frontend:
     needs: changes
