@@ -71,9 +71,7 @@ describe("App", function appDescribe() {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("shows loading state and calls the backend when Analyze is clicked", async function loadingAndFetch() {
-    // Defer fetch resolution so SolidJS has time to render the
-    // loading state before the promise settles.
+  it("shows spinner and loading button text while fetching", async function spinnerWhileLoading() {
     let resolveFetch!: (value: Response) => void;
     const fetchMock = vi.fn().mockImplementation(
       () =>
@@ -85,14 +83,16 @@ describe("App", function appDescribe() {
     const user = userEvent.setup();
     render(() => <App />);
     const textarea = screen.getByLabelText("Mandarin text");
-    await user.type(textarea, "你好，最近好");
-    const button = screen.getByRole("button", { name: "Analyze" });
-    await user.click(button);
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
 
-    // After click the button text should change to "Analyzing..."
+    // The button should show "Analyzing..." while the request is in flight.
     expect(
       screen.getByRole("button", { name: "Analyzing..." }),
     ).toBeInTheDocument();
+
+    // The full-screen spinner overlay should be visible.
+    expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
 
     // The textarea should be disabled while loading.
     expect(textarea).toBeDisabled();
@@ -104,15 +104,15 @@ describe("App", function appDescribe() {
     expect(options.method).toBe("POST");
     expect(options.headers).toEqual({ "Content-Type": "application/json" });
     const body = JSON.parse(options.body as string);
-    expect(body.text).toBe("你好，最近好");
+    expect(body.text).toBe("你好");
 
-    // Resolve the pending fetch so the test can clean up.
+    // Clean up — resolve the pending fetch.
     resolveFetch(
       new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
     );
   });
 
-  it("displays parsed words after a successful response", async function displaysWords() {
+  it("navigates to results view on successful response", async function navigatesToResults() {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(
@@ -122,22 +122,62 @@ describe("App", function appDescribe() {
     const user = userEvent.setup();
     render(() => <App />);
     const textarea = screen.getByLabelText("Mandarin text");
-    await user.type(textarea, "你好，最近好");
-    const button = screen.getByRole("button", { name: "Analyze" });
-    await user.click(button);
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
 
-    // Wait for the words to appear (pinyin for hanzi words).
-    const pinyinNihao = await screen.findByText("nǐhǎo");
-    expect(pinyinNihao).toBeInTheDocument();
+    // Results page heading should be visible.
+    const heading = await screen.findByRole("heading", {
+      name: "Parsed Result",
+    });
+    expect(heading).toBeInTheDocument();
 
-    // The hanzi itself should also be visible.
-    expect(screen.getByText("你好")).toBeInTheDocument();
-    expect(screen.getByText("最近")).toBeInTheDocument();
-    expect(screen.getByText("好")).toBeInTheDocument();
+    // Close button should be visible.
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
 
-    // The comma is punctuation so it should appear but without pinyin.
-    const commas = screen.getAllByText("，");
-    expect(commas.length).toBeGreaterThan(0);
+    // The form elements should no longer be in the DOM.
+    expect(screen.queryByLabelText("Mandarin text")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Analyze" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Mandarin Text Parser" }),
+    ).not.toBeInTheDocument();
+
+    // Parsed words should be displayed on the results page.
+    expect(screen.getByText("nǐhǎo")).toBeInTheDocument();
+  });
+
+  it("returns to form view when Close button is clicked", async function closeReturnsToForm() {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+
+    // Wait for the results page.
+    await screen.findByRole("heading", { name: "Parsed Result" });
+
+    // Click the Close button.
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    // Form elements should be visible again.
+    expect(screen.getByLabelText("Mandarin text")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Mandarin Text Parser" }),
+    ).toBeInTheDocument();
+
+    // Previously entered text should be preserved.
+    expect(textarea).toHaveValue("你好");
+
+    // Results should be gone.
+    expect(screen.queryByText("nǐhǎo")).not.toBeInTheDocument();
   });
 
   it("shows the English translation on hover via the title attribute", async function hoverShowsEnglish() {
@@ -305,12 +345,13 @@ describe("App", function appDescribe() {
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("First error");
 
-    // Second attempt — succeeds, error should be gone.
+    // Second attempt — succeeds, view switches to results page.
     failFetch = false;
     await user.type(textarea, "你好");
     await user.click(screen.getByRole("button", { name: "Analyze" }));
 
-    // Pinyin should appear and error alert should be gone.
+    // Pinyin should appear on the results page and error alert should
+    // be gone from the DOM since the form view is unmounted.
     await screen.findByText("nǐhǎo");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
