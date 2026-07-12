@@ -32,3 +32,83 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
   min-height: 100vh;
 }
+
+/* ---------- Parsed word display ---------- */
+
+.parsed-text {
+  word-break: keep-all;
+}
+
+.parsed-word {
+  margin: 0 1px;
+  padding: 2px 1px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.parsed-word:hover {
+  background-color: var(--color-muted);
+}
+
+/*
+ * The results container sets --font-scale via inline style. The hanzi
+ * and pinyin sizes are computed as base * scale so the zoom buttons can
+ * adjust both in lockstep without affecting the rest of the page.
+ */
+.hanzi {
+  font-size: calc(1.125rem * var(--font-scale, 1));
+  line-height: 1.5;
+}
+
+.pinyin {
+  font-size: calc(0.75rem * var(--font-scale, 1));
+  line-height: 1.25;
+  color: var(--color-muted-foreground);
+  /* The underbrace is drawn via a pseudo-element that creates a
+     downward-curving line above the pinyin text. */
+  position: relative;
+  padding-top: 5px;
+}
+
+.pinyin::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0 0 50% 50%;
+}
+
+/* ---------- Mobile click popup ---------- */
+
+.word-popup {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  /* Keep the popup above other elements and readable. */
+  z-index: 10;
+  /* Prevent the popup from being narrower than its contents. */
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: var(--color-foreground);
+  color: var(--color-background);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+/* Small arrow pointing down toward the word. */
+.word-popup::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: var(--color-foreground);
+}
