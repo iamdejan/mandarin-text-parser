@@ -195,6 +195,17 @@ Some explanations for this example:
 - 我 (wǒ) acts as a subject, and it stands alone.
 - 尽力 (jìnlì) is grouped as 1 word, because it is. The meaning according to dictionary is "to strive one's hardest."
 
+Example 5 (multi-line text):
+Input:
+长大以后才发现
+原来最累的不是忙, 而是心里一直装着很多事却没有地方放.
+
+Output:
+{"words":[{"hanzi":"长大","pinyin":"zhǎngdà","english":"to grow up"},{"hanzi":"以后","pinyin":"yǐhòu","english":"after"},{"hanzi":"才","pinyin":"cái","english":"only then"},{"hanzi":"发现","pinyin":"fāxiàn","english":"to discover"},{"hanzi":"原来","pinyin":"yuánlái","english":"originally"},{"hanzi":"\n","pinyin":"\n","english":"\n"},{"hanzi":"最","pinyin":"zuì","english":"most"},{"hanzi":"累","pinyin":"lèi","english":"tired"},{"hanzi":"的","pinyin":"de","english":"possessive/attributive particle"},{"hanzi":"不是","pinyin":"búshì","english":"is not"},{"hanzi":"忙","pinyin":"máng","english":"busy"},{"hanzi":",","pinyin":",","english":","},{"hanzi":"而是","pinyin":"érshì","english":"but rather"},{"hanzi":"心里","pinyin":"xīnlǐ","english":"in one's heart"},{"hanzi":"一直","pinyin":"yìzhí","english":"always"},{"hanzi":"装","pinyin":"zhuāng","english":"to hold/contain"},{"hanzi":"着","pinyin":"zhe","english":"aspect particle"},{"hanzi":"很多","pinyin":"hěnduō","english":"many"},{"hanzi":"事","pinyin":"shì","english":"matters/things"},{"hanzi":"却","pinyin":"què","english":"but"},{"hanzi":"没有","pinyin":"méiyǒu","english":"have not"},{"hanzi":"地方","pinyin":"dìfang","english":"place"},{"hanzi":"放","pinyin":"fàng","english":"to put"},{"hanzi":".","pinyin":".","english":"."}]}
+
+Some explanations for this example:
+- Since multi-line is parsed as "\n", then this should be treated as a "word" as well, in order to ease the rendering.
+
 No tool calls are required, just use your knowledge. DO NOT hallucinate. Make no mistakes.
 "#;
 
@@ -361,7 +372,7 @@ async fn parse_text(
 
     let response_schema = json!({
         "type": "array",
-        "items": {
+        "words": {
             "type": "object",
             "properties": {
                 "hanzi": {
