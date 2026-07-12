@@ -1,9 +1,17 @@
 import { describe, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@solidjs/testing-library";
+import { render, screen, cleanup, fireEvent } from "@solidjs/testing-library";
+import userEvent from "@testing-library/user-event";
 import App from "./App";
 
-describe("App", () => {
-  beforeEach(() => {
+const mockWords = [
+  { hanzi: "你好", pinyin: "nǐhǎo", english: "hello" },
+  { hanzi: "，", pinyin: "，", english: "," },
+  { hanzi: "最近", pinyin: "zuìjìn", english: "recently" },
+  { hanzi: "好", pinyin: "hǎo", english: "good; well" },
+];
+
+describe("App", function appDescribe() {
+  beforeEach(function beforeEachHook() {
     vi.clearAllMocks();
     // Stub localStorage so theme persistence works in JSDOM.
     const store: Record<string, string> = {};
@@ -15,40 +23,316 @@ describe("App", () => {
         store[key] = value;
       },
     );
+    // Reset fetch mock to a default null (no call) state between tests.
+    vi.stubGlobal("fetch", undefined);
   });
 
-  afterEach(() => {
+  afterEach(function afterEachHook() {
     cleanup();
   });
 
-  it("renders the page heading", () => {
+  it("renders the page heading", function rendersHeading() {
     render(() => <App />);
     expect(
       screen.getByRole("heading", { name: "Mandarin Text Parser" }),
     ).toBeInTheDocument();
   });
 
-  it("renders the Mandarin text textarea", () => {
+  it("renders the Mandarin text textarea", function rendersTextarea() {
     render(() => <App />);
     expect(screen.getByLabelText("Mandarin text")).toBeInTheDocument();
   });
 
-  it("renders the Analyse button", () => {
+  it("renders the Analyze button", function rendersAnalyzeButton() {
     render(() => <App />);
-    expect(screen.getByRole("button", { name: "Analyse" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeInTheDocument();
   });
 
-  it("renders the character count", () => {
+  it("renders the character count", function rendersCharCount() {
     render(() => <App />);
     expect(screen.getByText("0 / 2000")).toBeInTheDocument();
   });
 
-  it("updates character count when user types", async () => {
-    const { userEvent } = await import("@testing-library/user-event");
+  it("updates character count when user types", async function updatesCharCount() {
     const user = userEvent.setup();
     render(() => <App />);
     const textarea = screen.getByLabelText("Mandarin text");
     await user.type(textarea, "你好");
     expect(screen.getByText("2 / 2000")).toBeInTheDocument();
+  });
+
+  it("does not call fetch when the input is empty", async function noFetchOnEmpty() {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const button = screen.getByRole("button", { name: "Analyze" });
+    await user.click(button);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("shows loading state and calls the backend when Analyze is clicked", async function loadingAndFetch() {
+    // Defer fetch resolution so SolidJS has time to render the
+    // loading state before the promise settles.
+    let resolveFetch!: (value: Response) => void;
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好，最近好");
+    const button = screen.getByRole("button", { name: "Analyze" });
+    await user.click(button);
+
+    // After click the button text should change to "Analyzing..."
+    expect(
+      screen.getByRole("button", { name: "Analyzing..." }),
+    ).toBeInTheDocument();
+
+    // The textarea should be disabled while loading.
+    expect(textarea).toBeDisabled();
+
+    // Verify the fetch call was made with the correct body.
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/text/parse");
+    expect(options.method).toBe("POST");
+    expect(options.headers).toEqual({ "Content-Type": "application/json" });
+    const body = JSON.parse(options.body as string);
+    expect(body.text).toBe("你好，最近好");
+
+    // Resolve the pending fetch so the test can clean up.
+    resolveFetch(
+      new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+    );
+  });
+
+  it("displays parsed words after a successful response", async function displaysWords() {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好，最近好");
+    const button = screen.getByRole("button", { name: "Analyze" });
+    await user.click(button);
+
+    // Wait for the words to appear (pinyin for hanzi words).
+    const pinyinNihao = await screen.findByText("nǐhǎo");
+    expect(pinyinNihao).toBeInTheDocument();
+
+    // The hanzi itself should also be visible.
+    expect(screen.getByText("你好")).toBeInTheDocument();
+    expect(screen.getByText("最近")).toBeInTheDocument();
+    expect(screen.getByText("好")).toBeInTheDocument();
+
+    // The comma is punctuation so it should appear but without pinyin.
+    const commas = screen.getAllByText("，");
+    expect(commas.length).toBeGreaterThan(0);
+  });
+
+  it("shows the English translation on hover via the title attribute", async function hoverShowsEnglish() {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+
+    // Each word span should have a title attribute with the English
+    // translation.
+    const helloElement = await screen.findByTitle("hello");
+    expect(helloElement).toBeInTheDocument();
+  });
+
+  it("shows popup with English translation on click", async function clickShowsPopup() {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+
+    // Find the word element (which has the title "hello") and click it.
+    const helloWord = await screen.findByTitle("hello");
+    await user.click(helloWord);
+
+    // A tooltip with the English translation should appear.
+    const tooltips = screen.getAllByRole("tooltip");
+    const tooltip = tooltips.find((t) => t.textContent === "hello");
+    expect(tooltip).toBeInTheDocument();
+  });
+
+  it("dismisses the popup when clicking the same word again", async function dismissesPopup() {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+
+    const helloWord = await screen.findByTitle("hello");
+    await user.click(helloWord);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+
+    // Click again to dismiss.
+    await user.click(helloWord);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("displays error message when fetch fails", async function displaysFetchError() {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("Network error"));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Network error");
+  });
+
+  it("displays error message on non-OK HTTP status", async function displaysHttpError() {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response("Bad request", { status: 400 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("400");
+  });
+
+  it("does not display pinyin for punctuation marks", async function noPinyinForPunctuation() {
+    // The comma has hanzi=，pinyin=，english=, — it is not a hanzi word.
+    const commaWord = { hanzi: "，", pinyin: "，", english: "," };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: [commaWord] }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "，");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+
+    // The comma character should be visible.
+    await screen.findByText("，");
+
+    // But there should be no pinyin text node that is a separate element
+    // with the pinyin class. We check that the parsed-word for this
+    // token does NOT have the "has-pinyin" class.
+    const commaContainer = (await screen.findByTitle(",")).closest(
+      ".parsed-word",
+    );
+    expect(commaContainer).not.toHaveClass("has-pinyin");
+  });
+
+  it("disables analyze button while loading", async function disabledWhileLoading() {
+    let resolveFetch!: (value: Response) => void;
+    const fetchMock = vi.fn().mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+
+    const button = screen.getByRole("button", { name: "Analyzing..." });
+    expect(button).toBeDisabled();
+
+    // Resolve the pending fetch so the test can clean up.
+    resolveFetch(
+      new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+    );
+  });
+
+  it("clears previous error on a new analysis attempt", async function clearsError() {
+    // First, produce an error.
+    let failFetch = true;
+    const fetchMock = vi.fn().mockImplementation(() => {
+      if (failFetch) {
+        return Promise.reject(new Error("First error"));
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+
+    // First attempt — fails.
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("First error");
+
+    // Second attempt — succeeds, error should be gone.
+    failFetch = false;
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+
+    // Pinyin should appear and error alert should be gone.
+    await screen.findByText("nǐhǎo");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("handles keyboard interaction on word click (Enter)", async function keyboardEnter() {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+
+    const helloWord = await screen.findByTitle("hello");
+    fireEvent.keyDown(helloWord, { key: "Enter" });
+
+    const tooltips = screen.getAllByRole("tooltip");
+    const tooltip = tooltips.find((t) => t.textContent === "hello");
+    expect(tooltip).toBeInTheDocument();
   });
 });
