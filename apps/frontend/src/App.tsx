@@ -112,14 +112,23 @@ export default function App(): JSX.Element {
   }
 
   /**
-   * Returns the user to the form view, clearing the parsed words and
-   * the active word popup. The previously entered text is preserved so
-   * the user can edit it and submit again.
+   * Returns the user to the form view and dismisses the active word
+   * popup. The parsed words are preserved so the user can return to
+   * the results view later. They are only cleared when a new request
+   * is triggered. The previously entered text is also preserved.
    */
   function handleCloseResults(): void {
     setView("form");
-    setWords([]);
     setActiveWordIndex(null);
+  }
+
+  /**
+   * Switches the view to the results page, restoring the previously
+   * parsed words. This is used when the user wants to return to the
+   * results after closing them.
+   */
+  function handleViewResults(): void {
+    setView("results");
   }
 
   /**
@@ -311,6 +320,17 @@ export default function App(): JSX.Element {
                 {loading() ? "Analyzing..." : "Analyze"}
               </button>
             </form>
+
+            {/* Button to return to the last results if available */}
+            <Show when={words().length > 0}>
+              <button
+                type="button"
+                onClick={handleViewResults}
+                class="mt-4 inline-flex w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                View last results
+              </button>
+            </Show>
 
             {/* Error banner */}
             <Show when={error()}>
