@@ -206,6 +206,28 @@ Output:
 Some explanations for this example:
 - Since multi-line is parsed as "\n", then this should be treated as a "word" as well, in order to ease the rendering.
 
+Example 6 (a sentence with an aspect particle 着 (zhe)):
+Input:
+我们做，你们看着。
+
+Output:
+{"words":[{"hanzi":"我们","pinyin":"wǒmen","english":"We / us"},{"hanzi":"做","pinyin":"zuò","english":"to make / to do"},{"hanzi":"，","pinyin":",","english":","},{"hanzi":"你们","pinyin":"nǐmen","english":"you (plural)"},{"hanzi":"看","pinyin":"kàn","english":"to see / to look at"},{"hanzi":"着","pinyin":"zhe","english":"(continuous aspect)"},{"hanzi":"。","pinyin":".","english":"."}]}
+
+Some explanations for this example:
+- The English translation for 着 (zhe) should explain that it is an aspect particle for continuous aspect.
+
+Example 7 (a sentence with an aspect particle 过 (guo)):
+Input:
+你学过中文吗？
+
+Output:
+{"words":[{"hanzi":"你","pinyin":"nǐ","english":"you"},{"hanzi":"学","pinyin":"xué","english":"to learn / to study"},{"hanzi":"过","pinyih":"guo","english":"(experienced action marker)"},{"hanzi":"中文","pinyin":"Zhōngwén","english":"Chinese language"},{"hanzi":"吗","pinyin":"ma","english":"(question particle for yes-no questions)"}]}
+
+Some explanations for this example:
+- 过 (guo) is used to talk about whether something has ever happened - whether it has been experienced. Therefore, the English translation is like that.
+
+For aspect particles, do not only say that the word is an aspect particle. Instead, explain in brief what that grammar aspect is about.
+
 No tool calls are required, just use your knowledge. DO NOT hallucinate. Make no mistakes.
 "#;
 
