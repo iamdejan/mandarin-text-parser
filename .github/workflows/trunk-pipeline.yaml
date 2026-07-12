@@ -24,8 +24,8 @@ jobs:
               - 'apps/frontend/**'
 
   backend:
-    # needs: changes
-    # if: needs.changes.outputs.backend == 'true'
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     strategy:
       matrix:
         os: ['ubuntu-slim']
@@ -60,10 +60,8 @@ jobs:
           path: apps/backend/target/release/main
 
   backend-deploy:
-    # will be activated only after pipeline works
-    # needs: [changes, backend]
-    # if: needs.changes.outputs.backend == 'true'
-    needs: [backend]
+    needs: [changes, backend]
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-slim
     steps:
       - name: Checkout repository code
