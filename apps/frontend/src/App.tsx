@@ -321,14 +321,14 @@ export default function App(): JSX.Element {
               </button>
             </form>
 
-            {/* Button to return to the last results if available */}
+            {/* Button to return to the last result if available */}
             <Show when={words().length > 0}>
               <button
                 type="button"
                 onClick={handleViewResults}
                 class="mt-4 inline-flex w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                View last results
+                View last result
               </button>
             </Show>
 
