@@ -1,4 +1,5 @@
 import { createSignal, For, Show, Switch, Match, type JSX } from "solid-js";
+import { useClipboard } from "solidjs-use";
 import ThemeToggle from "./components/ThemeToggle";
 import { createTheme } from "./lib/use-theme";
 import type { Word, ParseResponse } from "./lib/types";
@@ -24,6 +25,7 @@ function isHanziWord(word: Word): boolean {
 
 export default function App(): JSX.Element {
   const { theme, toggleTheme } = createTheme();
+  const { copy } = useClipboard();
 
   const [text, setText] = createSignal("");
   const [charCount, setCharCount] = createSignal(0);
@@ -132,11 +134,21 @@ export default function App(): JSX.Element {
   }
 
   /**
-   * Toggles the popup for the word at the given index. If the same
-   * index is already active, the popup is dismissed.
+   * Toggles the popup for the word at the given index and copies the
+   * word to the clipboard in the format "hanzi (pinyin)". If the same
+   * index is already active, the popup is dismissed (without copying).
    */
   function handleWordClick(index: number): void {
-    setActiveWordIndex((prev) => (prev === index ? null : index));
+    const newIndex = activeWordIndex() === index ? null : index;
+    setActiveWordIndex(newIndex);
+    if (newIndex !== null) {
+      const word = words()[index];
+      if (word !== undefined && isHanziWord(word)) {
+        copy(`${word.hanzi} (${word.pinyin})`).catch(() => {
+          /* clipboard write is best-effort — ignore failures */
+        });
+      }
+    }
   }
 
   /**
@@ -257,7 +269,7 @@ export default function App(): JSX.Element {
                           <Show when={isHanziWord(word)}>
                             <span class="pinyin">{word.pinyin}</span>
                           </Show>
-                          {/* Mobile popup */}
+
                           <Show when={activeWordIndex() === index()}>
                             <span class="word-popup" role="tooltip">
                               {word.english}
