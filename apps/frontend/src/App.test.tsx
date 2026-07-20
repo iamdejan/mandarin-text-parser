@@ -519,4 +519,78 @@ describe("App", function appDescribe() {
       getComputedStyle(parsedContainer).getPropertyValue("--font-scale"),
     ).toBe("1.25");
   });
+
+  // ---------- Clipboard tests ----------
+
+  async function navigateToResultsForClipboard(
+    user: ReturnType<typeof userEvent.setup>,
+  ): Promise<void> {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+  }
+
+  it("copies hanzi and pinyin to clipboard when a word is clicked", async function copiesToClipboard() {
+    const writeTextSpy = vi.spyOn(navigator.clipboard, "writeText");
+
+    const user = userEvent.setup();
+    await navigateToResultsForClipboard(user);
+
+    const helloWord = await screen.findByTitle("hello");
+    await user.click(helloWord);
+
+    // Verify clipboard.writeText was called with "你好 (nǐhǎo)" format.
+    expect(writeTextSpy).toHaveBeenCalledOnce();
+    expect(writeTextSpy).toHaveBeenCalledWith("你好 (nǐhǎo)");
+  });
+
+  it("does not copy to clipboard when the same word is clicked again to dismiss", async function doesNotCopyOnDismiss() {
+    const writeTextSpy = vi.spyOn(navigator.clipboard, "writeText");
+
+    const user = userEvent.setup();
+    await navigateToResultsForClipboard(user);
+
+    const helloWord = await screen.findByTitle("hello");
+
+    // First click — should copy.
+    await user.click(helloWord);
+    expect(writeTextSpy).toHaveBeenCalledTimes(1);
+
+    // Second click — dismisses the popup, should NOT copy again.
+    await user.click(helloWord);
+    expect(writeTextSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not copy punctuation words to clipboard", async function doesNotCopyPunctuation() {
+    const writeTextSpy = vi.spyOn(navigator.clipboard, "writeText");
+
+    const user = userEvent.setup();
+    // The comma word has hanzi=，pinyin=，english=, — it is not a hanzi word.
+    const commaWord = { hanzi: "，", pinyin: "，", english: "," };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: [commaWord] }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "，");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByTitle(",");
+
+    const commaElement = screen.getByTitle(",");
+    await user.click(commaElement);
+
+    // Clipboard should not have been called for punctuation.
+    expect(writeTextSpy).not.toHaveBeenCalled();
+  });
 });
