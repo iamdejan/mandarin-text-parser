@@ -144,7 +144,7 @@ export default function App(): JSX.Element {
     if (newIndex !== null) {
       const word = words()[index];
       if (word !== undefined && isHanziWord(word)) {
-        copy(`${word.hanzi} (${word.pinyin})`).catch(() => {
+        copy(`${word.hanzi} (${word.pinyin}): ${word.english}`).catch(() => {
           /* clipboard write is best-effort — ignore failures */
         });
       }
