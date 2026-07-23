@@ -63,11 +63,14 @@ function persistResults(results: SavedResult[]): void {
  *  - `results` — a reactive signal holding the full history.
  *  - `addResult` — saves a new result and returns it.
  *  - `getResult` — looks up a single result by its `id`.
+ *  - `deleteResult` — removes a result by its `id` from the store
+ *    and persists the updated array to localStorage.
  */
 export function createResultStore(): {
   results: () => SavedResult[];
   addResult: (text: string, words: Word[]) => SavedResult;
   getResult: (id: string) => SavedResult | undefined;
+  deleteResult: (id: string) => void;
 } {
   const [results, setResults] = createSignal<SavedResult[]>(loadResults());
 
@@ -103,5 +106,20 @@ export function createResultStore(): {
     return results().find((result) => result.id === id);
   }
 
-  return { results, addResult, getResult };
+  /**
+   * Removes a saved result from the history by its unique identifier
+   * and persists the updated array to localStorage.
+   *
+   * If no result with the given `id` exists, the store remains unchanged
+   * (the call is a no-op beyond the filter pass).
+   *
+   * @param id - The `id` of the result to remove.
+   */
+  function deleteResult(id: string): void {
+    const updated = results().filter((result) => result.id !== id);
+    setResults(updated);
+    persistResults(updated);
+  }
+
+  return { results, addResult, getResult, deleteResult };
 }

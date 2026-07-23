@@ -728,4 +728,192 @@ describe("App", function appDescribe() {
     const previewEl = screen.getByText(/\.\.\.$/);
     expect(previewEl).toBeInTheDocument();
   });
+
+  // ---------- Delete result tests ----------
+
+  it("shows a trash icon button on each history item", async function showsTrashIcon() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    const deleteButtons = screen.getAllByRole("button", {
+      name: "Delete result",
+    });
+    expect(deleteButtons.length).toBe(1);
+  });
+
+  it("shows confirmation popup when the trash icon is clicked", async function showsConfirmationPopup() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    // No confirmation dialog should be visible initially.
+    expect(
+      screen.queryByRole("dialog", { name: "Delete confirmation" }),
+    ).not.toBeInTheDocument();
+
+    // Click the trash icon.
+    await user.click(screen.getByRole("button", { name: "Delete result" }));
+
+    // The confirmation dialog should appear.
+    expect(
+      screen.getByRole("dialog", { name: "Delete confirmation" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  it("hides the confirmation popup when Cancel is clicked without deleting", async function cancelHidesPopup() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    await user.click(screen.getByRole("button", { name: "Delete result" }));
+    expect(
+      screen.getByRole("dialog", { name: "Delete confirmation" }),
+    ).toBeInTheDocument();
+
+    // Click Cancel.
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    // The dialog should be gone.
+    expect(
+      screen.queryByRole("dialog", { name: "Delete confirmation" }),
+    ).not.toBeInTheDocument();
+
+    // The history item should still be present.
+    expect(screen.getByText("你好")).toBeInTheDocument();
+  });
+
+  it("hides the confirmation popup when the backdrop is clicked without deleting", async function backdropHidesPopup() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    await user.click(screen.getByRole("button", { name: "Delete result" }));
+    const dialog = screen.getByRole("dialog", {
+      name: "Delete confirmation",
+    });
+    expect(dialog).toBeInTheDocument();
+
+    // Click the backdrop — the outermost div with onClick handler.
+    // The dialog's outermost div has the onClick={handleCancelDelete}
+    // handler and role="dialog".
+    await user.click(dialog);
+
+    // The dialog should be gone.
+    expect(
+      screen.queryByRole("dialog", { name: "Delete confirmation" }),
+    ).not.toBeInTheDocument();
+
+    // The history item should still be present.
+    expect(screen.getByText("你好")).toBeInTheDocument();
+  });
+
+  it("removes the history item when Delete is confirmed", async function deleteRemovesItem() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    // The history item should be present.
+    expect(screen.getByText("你好")).toBeInTheDocument();
+
+    // Click the trash icon.
+    await user.click(screen.getByRole("button", { name: "Delete result" }));
+
+    // Confirm deletion.
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    // The dialog should be gone.
+    expect(
+      screen.queryByRole("dialog", { name: "Delete confirmation" }),
+    ).not.toBeInTheDocument();
+
+    // The history item should be removed — preview text "你好" should
+    // no longer be in the DOM.
+    expect(screen.queryByText("你好")).not.toBeInTheDocument();
+
+    // The history heading should also be gone since the list is now empty.
+    expect(
+      screen.queryByRole("heading", { name: "History" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("persists deletion to localStorage", async function deletePersistsToStorage() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    // Verify the result is in localStorage before deletion.
+    const beforeRaw = localStorage.getItem("parsed-results");
+    expect(beforeRaw).not.toBeNull();
+    const before: unknown = JSON.parse(beforeRaw!);
+    expect(Array.isArray(before) && (before as unknown[]).length).toBe(1);
+
+    // Click the trash icon and confirm deletion.
+    await user.click(screen.getByRole("button", { name: "Delete result" }));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    // Verify the result is removed from localStorage.
+    const afterRaw = localStorage.getItem("parsed-results");
+    expect(afterRaw).not.toBeNull();
+    const after: unknown = JSON.parse(afterRaw!);
+    expect(Array.isArray(after) && (after as unknown[]).length).toBe(0);
+  });
+
+  it("deletes only the selected result when multiple items exist", async function deletesOnlySelected() {
+    const user = userEvent.setup();
+
+    // First result: "你好"
+    let fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText(
+      "Mandarin text",
+    ) as HTMLTextAreaElement;
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    // Second result: "世界"
+    const worldWords = [{ hanzi: "世界", pinyin: "shìjiè", english: "world" }];
+    fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: worldWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const textarea2 = screen.getByLabelText(
+      "Mandarin text",
+    ) as HTMLTextAreaElement;
+    textarea2.value = "";
+    fireEvent.input(textarea2);
+    await user.type(textarea2, "世界");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    // Both items should be present.
+    expect(screen.getByText("你好")).toBeInTheDocument();
+    expect(screen.getByText("世界")).toBeInTheDocument();
+
+    // Get all delete buttons — index 0 is the most recent (世界), index
+    // 1 is the older entry (你好).
+    const deleteButtons = screen.getAllByRole("button", {
+      name: "Delete result",
+    });
+    expect(deleteButtons.length).toBe(2);
+
+    // Delete the first item (世界 — the most recent).
+    await user.click(deleteButtons[0]!);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    // 世界 should be gone, 你好 should still be present.
+    expect(screen.queryByText("世界")).not.toBeInTheDocument();
+    expect(screen.getByText("你好")).toBeInTheDocument();
+
+    // Verify localStorage has only one entry.
+    const raw = localStorage.getItem("parsed-results");
+    const parsed: unknown = JSON.parse(raw!);
+    expect(Array.isArray(parsed) && (parsed as unknown[]).length).toBe(1);
+  });
 });

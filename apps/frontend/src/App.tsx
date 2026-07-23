@@ -40,11 +40,15 @@ export default function App(): JSX.Element {
   );
   const [view, setView] = createSignal<View>("form");
 
+  const [deletePendingId, setDeletePendingId] = createSignal<string | null>(
+    null,
+  );
+
   const minFontScale = 0.5;
   const maxFontScale = 3;
   const [fontScale, setFontScale] = createSignal(1);
 
-  const { results, addResult, getResult } = createResultStore();
+  const { results, addResult, getResult, deleteResult } = createResultStore();
 
   /**
    * Updates the text signal and the character count whenever the user
@@ -126,6 +130,37 @@ export default function App(): JSX.Element {
   function handleCloseResults(): void {
     setView("form");
     setActiveWordIndex(null);
+  }
+
+  /**
+   * Handler for clicking the trash icon on a history item. Sets the
+   * `deletePendingId` signal to the result's ID so the confirmation
+   * popup is displayed for that specific item.
+   */
+  function handleDeleteClick(id: string): void {
+    setDeletePendingId(id);
+  }
+
+  /**
+   * Confirms deletion: removes the result from the store via
+   * `deleteResult`, then dismisses the confirmation popup by setting
+   * `deletePendingId` back to `null`.
+   */
+  function handleConfirmDelete(): void {
+    const id = deletePendingId();
+    if (id !== null) {
+      deleteResult(id);
+      setDeletePendingId(null);
+    }
+  }
+
+  /**
+   * Cancels the pending deletion by resetting `deletePendingId` to
+   * `null`, which hides the confirmation popup without modifying the
+   * results array.
+   */
+  function handleCancelDelete(): void {
+    setDeletePendingId(null);
   }
 
   /**
@@ -212,6 +247,44 @@ export default function App(): JSX.Element {
           role="status"
         >
           <div class="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </Show>
+
+      {/* Confirmation popup — overlays the entire page when the user
+          clicks the trash icon on a history item. Clicking outside the
+          dialog (on the backdrop) cancels the deletion. */}
+      <Show when={deletePendingId() !== null}>
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={handleCancelDelete}
+          role="dialog"
+          aria-label="Delete confirmation"
+        >
+          <div
+            class="mx-4 w-full max-w-sm rounded-lg border border-border bg-background p-6 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p class="text-sm text-foreground">
+              Are you sure you want to delete this result? This action cannot be
+              undone.
+            </p>
+            <div class="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelDelete}
+                class="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                class="inline-flex items-center justify-center rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       </Show>
 
@@ -368,16 +441,40 @@ export default function App(): JSX.Element {
                 <ol class="space-y-1">
                   <For each={results()}>
                     {(result, index) => (
-                      <li>
+                      <li class="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => handleSelectResult(result.id)}
-                          class="w-full rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          class="flex-1 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <span class="font-medium tabular-nums text-muted-foreground">
                             {index() + 1}.
                           </span>{" "}
                           {getPreviewText(result.text)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteClick(result.id)}
+                          aria-label="Delete result"
+                          class="shrink-0 rounded-md p-2 text-muted-foreground transition-colors hover:bg-red-100 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-red-950 dark:hover:text-red-400"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="h-4 w-4"
+                            aria-hidden="true"
+                          >
+                            <path d="M3 6h18" />
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                            <line x1="10" y1="11" x2="10" y2="17" />
+                            <line x1="14" y1="11" x2="14" y2="17" />
+                          </svg>
                         </button>
                       </li>
                     )}
