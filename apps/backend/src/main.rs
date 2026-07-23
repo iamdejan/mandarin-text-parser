@@ -132,12 +132,12 @@ impl IntoResponse for AppError {
 }
 
 static PROMPT_TEMPLATE: &str = r#"
-You are an expert in Mandarin and English, with over 20 years of experience. Now, you are here to help me learn reading Chinese text by grouping the characters into logical words. For each grouping, translate to English.
+You are an expert in Mandarin and English, with over 20 years of experience. You are here to help me learn reading Chinese text by grouping the characters into logical words. For each grouping, translate to English.
 
 Here's the given text:
 {text}
 
-Here are some guidelines how you should group the characters:
+Here are some guidelines on how you should group the characters:
 - For aspect particles, in the English translation, do not only say that the word is an aspect particle. Instead, explain in brief what that grammar aspect is about.
 - The tone in the pinyin should be changed according to tone sandhi rules. Example: pinyin for 一个 should be "yígè".
 - The English translation for each word should follow the context of the sentence. For example: in the sentence 我爱你, the translation of "我" should be "I". But in this sentence 你给我发工作吗, the translation of "我" should be "me".
@@ -231,9 +231,7 @@ Output:
 Some explanations for this example:
 - 过 (guo) is used to talk about whether something has ever happened - whether it has been experienced. Therefore, the English translation is `(experienced action marker)`.
 
-STRICTLY return the response following the format from this JSON schema: {response_schema}.
-
-No tool calls are required, just use your knowledge. DO NOT hallucinate. Make no mistakes.
+STRICTLY return the response following the format from this JSON schema: {response_schema}
 "#;
 
 #[derive(Serialize, Deserialize)]
