@@ -547,9 +547,9 @@ describe("App", function appDescribe() {
     const helloWord = await screen.findByTitle("hello");
     await user.click(helloWord);
 
-    // Verify clipboard.writeText was called with "你好 (nǐhǎo)" format.
+    // Verify clipboard.writeText was called with the full format.
     expect(writeTextSpy).toHaveBeenCalledOnce();
-    expect(writeTextSpy).toHaveBeenCalledWith("你好 (nǐhǎo)");
+    expect(writeTextSpy).toHaveBeenCalledWith("你好 (nǐhǎo): hello");
   });
 
   it("does not copy to clipboard when the same word is clicked again to dismiss", async function doesNotCopyOnDismiss() {
@@ -592,5 +592,328 @@ describe("App", function appDescribe() {
 
     // Clipboard should not have been called for punctuation.
     expect(writeTextSpy).not.toHaveBeenCalled();
+  });
+
+  // ---------- History list tests ----------
+
+  /**
+   * Helper that navigates through the full analyze → close → form
+   * cycle so the history list is populated and visible on the form
+   * view. Returns the user instance for further interactions.
+   */
+  async function analyzeAndReturnToForm(
+    user: ReturnType<typeof userEvent.setup>,
+  ): Promise<void> {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    await user.click(screen.getByRole("button", { name: "Close" }));
+  }
+
+  it("shows history list after analyzing and returning to the form view", async function showsHistoryList() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    // The "History" heading should be visible.
+    expect(
+      screen.getByRole("heading", { name: "History" }),
+    ).toBeInTheDocument();
+
+    // The history list should contain the preview of the analyzed text.
+    expect(screen.getByText("你好")).toBeInTheDocument();
+  });
+
+  it("navigates to results view when a history item is clicked", async function historyNavigatesToResults() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    // Click on the history item (its preview text is "你好").
+    await user.click(screen.getByText("你好"));
+
+    // The results page should appear with the parsed words.
+    expect(
+      screen.getByRole("heading", { name: "Parsed Result" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("nǐhǎo")).toBeInTheDocument();
+  });
+
+  it("displays history items sorted with the most recent result first", async function historySortedMostRecentFirst() {
+    const user = userEvent.setup();
+
+    // First analysis: "你好" (2 hanzi chars)
+    let fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText(
+      "Mandarin text",
+    ) as HTMLTextAreaElement;
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    // Second analysis: "世界你好" (4 hanzi chars). Reset fetch mock to
+    // return a fresh response.
+    const worldWords = [
+      { hanzi: "世界", pinyin: "shìjiè", english: "world" },
+      { hanzi: "你好", pinyin: "nǐhǎo", english: "hello" },
+    ];
+    fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: worldWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    // Reset the textarea value by setting it directly and dispatching
+    // an input event (user.clear() is not supported in JSDOM).
+    const textarea2 = screen.getByLabelText(
+      "Mandarin text",
+    ) as HTMLTextAreaElement;
+    textarea2.value = "";
+    fireEvent.input(textarea2);
+    await user.type(textarea2, "世界你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    // The history list should now have two items.
+    const listItems = document.querySelectorAll("ol > li");
+    expect(listItems.length).toBe(2);
+
+    // The first (most recent) item should show "世界你好" (the 4-char
+    // preview), and the second should show "你好".
+    expect(listItems[0]?.textContent).toContain("世界你好");
+    expect(listItems[1]?.textContent).toContain("你好");
+  });
+
+  it("shows ellipsis when the preview text exceeds 10 hanzi characters", async function previewShowsEllipsis() {
+    const user = userEvent.setup();
+
+    // Build a string of 15 hanzi characters — the preview should show
+    // the first 10 followed by "...".
+    const longText = "我你他她它我们你们他们大家朋友同学老师学校";
+    // "我你他她它我们你们他们大" = first 10 chars (roughly), rest truncated.
+    const longWords = [{ hanzi: longText, pinyin: "", english: "" }];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: longWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText(
+      "Mandarin text",
+    ) as HTMLTextAreaElement;
+    // Set the value directly since typing 15 chars one by one is slow.
+    textarea.value = longText;
+    fireEvent.input(textarea);
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    // The preview should end with "..." since the text has >10 hanzi
+    // characters.
+    const previewEl = screen.getByText(/\.\.\.$/);
+    expect(previewEl).toBeInTheDocument();
+  });
+
+  // ---------- Delete result tests ----------
+
+  it("shows a trash icon button on each history item", async function showsTrashIcon() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    const deleteButtons = screen.getAllByRole("button", {
+      name: "Delete result",
+    });
+    expect(deleteButtons.length).toBe(1);
+  });
+
+  it("shows confirmation popup when the trash icon is clicked", async function showsConfirmationPopup() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    // No confirmation dialog should be visible initially.
+    expect(
+      screen.queryByRole("dialog", { name: "Delete confirmation" }),
+    ).not.toBeInTheDocument();
+
+    // Click the trash icon.
+    await user.click(screen.getByRole("button", { name: "Delete result" }));
+
+    // The confirmation dialog should appear.
+    expect(
+      screen.getByRole("dialog", { name: "Delete confirmation" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  it("hides the confirmation popup when Cancel is clicked without deleting", async function cancelHidesPopup() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    await user.click(screen.getByRole("button", { name: "Delete result" }));
+    expect(
+      screen.getByRole("dialog", { name: "Delete confirmation" }),
+    ).toBeInTheDocument();
+
+    // Click Cancel.
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    // The dialog should be gone.
+    expect(
+      screen.queryByRole("dialog", { name: "Delete confirmation" }),
+    ).not.toBeInTheDocument();
+
+    // The history item should still be present.
+    expect(screen.getByText("你好")).toBeInTheDocument();
+  });
+
+  it("hides the confirmation popup when the backdrop is clicked without deleting", async function backdropHidesPopup() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    await user.click(screen.getByRole("button", { name: "Delete result" }));
+    const dialog = screen.getByRole("dialog", {
+      name: "Delete confirmation",
+    });
+    expect(dialog).toBeInTheDocument();
+
+    // Click the backdrop — the outermost div with onClick handler.
+    // The dialog's outermost div has the onClick={handleCancelDelete}
+    // handler and role="dialog".
+    await user.click(dialog);
+
+    // The dialog should be gone.
+    expect(
+      screen.queryByRole("dialog", { name: "Delete confirmation" }),
+    ).not.toBeInTheDocument();
+
+    // The history item should still be present.
+    expect(screen.getByText("你好")).toBeInTheDocument();
+  });
+
+  it("removes the history item when Delete is confirmed", async function deleteRemovesItem() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    // The history item should be present.
+    expect(screen.getByText("你好")).toBeInTheDocument();
+
+    // Click the trash icon.
+    await user.click(screen.getByRole("button", { name: "Delete result" }));
+
+    // Confirm deletion.
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    // The dialog should be gone.
+    expect(
+      screen.queryByRole("dialog", { name: "Delete confirmation" }),
+    ).not.toBeInTheDocument();
+
+    // The history item should be removed — preview text "你好" should
+    // no longer be in the DOM.
+    expect(screen.queryByText("你好")).not.toBeInTheDocument();
+
+    // The history heading should also be gone since the list is now empty.
+    expect(
+      screen.queryByRole("heading", { name: "History" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("persists deletion to localStorage", async function deletePersistsToStorage() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    // Verify the result is in localStorage before deletion.
+    const beforeRaw = localStorage.getItem("parsed-results");
+    expect(beforeRaw).not.toBeNull();
+    const before: unknown = JSON.parse(beforeRaw!);
+    expect(Array.isArray(before) && (before as unknown[]).length).toBe(1);
+
+    // Click the trash icon and confirm deletion.
+    await user.click(screen.getByRole("button", { name: "Delete result" }));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    // Verify the result is removed from localStorage.
+    const afterRaw = localStorage.getItem("parsed-results");
+    expect(afterRaw).not.toBeNull();
+    const after: unknown = JSON.parse(afterRaw!);
+    expect(Array.isArray(after) && (after as unknown[]).length).toBe(0);
+  });
+
+  it("deletes only the selected result when multiple items exist", async function deletesOnlySelected() {
+    const user = userEvent.setup();
+
+    // First result: "你好"
+    let fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText(
+      "Mandarin text",
+    ) as HTMLTextAreaElement;
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    // Second result: "世界"
+    const worldWords = [{ hanzi: "世界", pinyin: "shìjiè", english: "world" }];
+    fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: worldWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const textarea2 = screen.getByLabelText(
+      "Mandarin text",
+    ) as HTMLTextAreaElement;
+    textarea2.value = "";
+    fireEvent.input(textarea2);
+    await user.type(textarea2, "世界");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    // Both items should be present.
+    expect(screen.getByText("你好")).toBeInTheDocument();
+    expect(screen.getByText("世界")).toBeInTheDocument();
+
+    // Get all delete buttons — index 0 is the most recent (世界), index
+    // 1 is the older entry (你好).
+    const deleteButtons = screen.getAllByRole("button", {
+      name: "Delete result",
+    });
+    expect(deleteButtons.length).toBe(2);
+
+    // Delete the first item (世界 — the most recent).
+    await user.click(deleteButtons[0]!);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    // 世界 should be gone, 你好 should still be present.
+    expect(screen.queryByText("世界")).not.toBeInTheDocument();
+    expect(screen.getByText("你好")).toBeInTheDocument();
+
+    // Verify localStorage has only one entry.
+    const raw = localStorage.getItem("parsed-results");
+    const parsed: unknown = JSON.parse(raw!);
+    expect(Array.isArray(parsed) && (parsed as unknown[]).length).toBe(1);
   });
 });
