@@ -81,6 +81,7 @@ Run these commands in sequence:
 2. `pnpm run lint:fix`: if there is any linter error, fix it with this command.
 3. `pnpm run lint`: recheck again, maybe there are linter errors that need manual fix.
 4. `pnpm run build`: build the code. This ensures that there are no build errors.
+5. `pnpm run test:ci`: run all unit tests.
 
 ### Update Documentation
 

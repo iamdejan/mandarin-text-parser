@@ -169,12 +169,8 @@ export default function App(): JSX.Element {
    * preview label in the history list.
    */
   function getPreviewText(input: string): string {
-    const hanziChars = [...input].filter(function isCJK(char: string): boolean {
-      const code = char.codePointAt(0);
-      return code !== undefined && code >= 0x4e00 && code <= 0x9fff;
-    });
-    const preview = hanziChars.slice(0, 10).join("");
-    return hanziChars.length > 10 ? `${preview}...` : preview;
+    const preview = input.slice(0, 10);
+    return input.length > 10 ? `${preview}...` : preview;
   }
 
   /**
