@@ -547,9 +547,9 @@ describe("App", function appDescribe() {
     const helloWord = await screen.findByTitle("hello");
     await user.click(helloWord);
 
-    // Verify clipboard.writeText was called with "你好 (nǐhǎo)" format.
+    // Verify clipboard.writeText was called with the full format.
     expect(writeTextSpy).toHaveBeenCalledOnce();
-    expect(writeTextSpy).toHaveBeenCalledWith("你好 (nǐhǎo)");
+    expect(writeTextSpy).toHaveBeenCalledWith("你好 (nǐhǎo): hello");
   });
 
   it("does not copy to clipboard when the same word is clicked again to dismiss", async function doesNotCopyOnDismiss() {
@@ -592,5 +592,140 @@ describe("App", function appDescribe() {
 
     // Clipboard should not have been called for punctuation.
     expect(writeTextSpy).not.toHaveBeenCalled();
+  });
+
+  // ---------- History list tests ----------
+
+  /**
+   * Helper that navigates through the full analyze → close → form
+   * cycle so the history list is populated and visible on the form
+   * view. Returns the user instance for further interactions.
+   */
+  async function analyzeAndReturnToForm(
+    user: ReturnType<typeof userEvent.setup>,
+  ): Promise<void> {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    await user.click(screen.getByRole("button", { name: "Close" }));
+  }
+
+  it("shows history list after analyzing and returning to the form view", async function showsHistoryList() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    // The "History" heading should be visible.
+    expect(
+      screen.getByRole("heading", { name: "History" }),
+    ).toBeInTheDocument();
+
+    // The history list should contain the preview of the analyzed text.
+    expect(screen.getByText("你好")).toBeInTheDocument();
+  });
+
+  it("navigates to results view when a history item is clicked", async function historyNavigatesToResults() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    // Click on the history item (its preview text is "你好").
+    await user.click(screen.getByText("你好"));
+
+    // The results page should appear with the parsed words.
+    expect(
+      screen.getByRole("heading", { name: "Parsed Result" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("nǐhǎo")).toBeInTheDocument();
+  });
+
+  it("displays history items sorted with the most recent result first", async function historySortedMostRecentFirst() {
+    const user = userEvent.setup();
+
+    // First analysis: "你好" (2 hanzi chars)
+    let fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText(
+      "Mandarin text",
+    ) as HTMLTextAreaElement;
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    // Second analysis: "世界你好" (4 hanzi chars). Reset fetch mock to
+    // return a fresh response.
+    const worldWords = [
+      { hanzi: "世界", pinyin: "shìjiè", english: "world" },
+      { hanzi: "你好", pinyin: "nǐhǎo", english: "hello" },
+    ];
+    fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: worldWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    // Reset the textarea value by setting it directly and dispatching
+    // an input event (user.clear() is not supported in JSDOM).
+    const textarea2 = screen.getByLabelText(
+      "Mandarin text",
+    ) as HTMLTextAreaElement;
+    textarea2.value = "";
+    fireEvent.input(textarea2);
+    await user.type(textarea2, "世界你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    // The history list should now have two items.
+    const listItems = document.querySelectorAll("ol > li");
+    expect(listItems.length).toBe(2);
+
+    // The first (most recent) item should show "世界你好" (the 4-char
+    // preview), and the second should show "你好".
+    expect(listItems[0]?.textContent).toContain("世界你好");
+    expect(listItems[1]?.textContent).toContain("你好");
+  });
+
+  it("shows ellipsis when the preview text exceeds 10 hanzi characters", async function previewShowsEllipsis() {
+    const user = userEvent.setup();
+
+    // Build a string of 15 hanzi characters — the preview should show
+    // the first 10 followed by "...".
+    const longText = "我你他她它我们你们他们大家朋友同学老师学校";
+    // "我你他她它我们你们他们大" = first 10 chars (roughly), rest truncated.
+    const longWords = [{ hanzi: longText, pinyin: "", english: "" }];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: longWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText(
+      "Mandarin text",
+    ) as HTMLTextAreaElement;
+    // Set the value directly since typing 15 chars one by one is slow.
+    textarea.value = longText;
+    fireEvent.input(textarea);
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    // The preview should end with "..." since the text has >10 hanzi
+    // characters.
+    const previewEl = screen.getByText(/\.\.\.$/);
+    expect(previewEl).toBeInTheDocument();
   });
 });

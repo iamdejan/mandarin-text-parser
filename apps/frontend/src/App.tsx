@@ -3,6 +3,7 @@ import { useClipboard } from "solidjs-use";
 import ThemeToggle from "./components/ThemeToggle";
 import { createTheme } from "./lib/use-theme";
 import type { Word, ParseResponse } from "./lib/types";
+import { createResultStore } from "./lib/result-store";
 
 /**
  * View states for the single-page application.
@@ -42,6 +43,8 @@ export default function App(): JSX.Element {
   const minFontScale = 0.5;
   const maxFontScale = 3;
   const [fontScale, setFontScale] = createSignal(1);
+
+  const { results, addResult, getResult } = createResultStore();
 
   /**
    * Updates the text signal and the character count whenever the user
@@ -102,7 +105,8 @@ export default function App(): JSX.Element {
       }
 
       const data: ParseResponse = (await response.json()) as ParseResponse;
-      setWords(data.words);
+      const saved = addResult(text(), data.words);
+      setWords(saved.words);
       setView("results");
     } catch (err: unknown) {
       const message =
@@ -125,12 +129,31 @@ export default function App(): JSX.Element {
   }
 
   /**
-   * Switches the view to the results page, restoring the previously
-   * parsed words. This is used when the user wants to return to the
-   * results after closing them.
+   * Extracts the first 10 CJK Unified Ideograph characters from the
+   * input text and appends `"..."` if there are more. Used for the
+   * preview label in the history list.
    */
-  function handleViewResults(): void {
-    setView("results");
+  function getPreviewText(input: string): string {
+    const hanziChars = [...input].filter(function isCJK(char: string): boolean {
+      const code = char.codePointAt(0);
+      return code !== undefined && code >= 0x4e00 && code <= 0x9fff;
+    });
+    const preview = hanziChars.slice(0, 10).join("");
+    return hanziChars.length > 10 ? `${preview}...` : preview;
+  }
+
+  /**
+   * Loads a previously saved result by its ID and switches to the
+   * results view. The words signal is populated from the saved result
+   * so the parsed-word display renders the selected analysis.
+   */
+  function handleSelectResult(id: string): void {
+    const result = getResult(id);
+    if (result) {
+      setWords(result.words);
+      setActiveWordIndex(null);
+      setView("results");
+    }
   }
 
   /**
@@ -333,15 +356,34 @@ export default function App(): JSX.Element {
               </button>
             </form>
 
-            {/* Button to return to the last result if available */}
-            <Show when={words().length > 0}>
-              <button
-                type="button"
-                onClick={handleViewResults}
-                class="mt-4 inline-flex w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                View last result
-              </button>
+            {/* History list — shows all previously saved parsing results
+                sorted by timestamp (most recent first). Each item displays
+                the numeric order and a preview of the first 10 hanzi
+                characters from the original input text. */}
+            <Show when={results().length > 0}>
+              <div class="mt-6">
+                <h2 class="mb-2 text-lg font-semibold text-foreground">
+                  History
+                </h2>
+                <ol class="space-y-1">
+                  <For each={results()}>
+                    {(result, index) => (
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectResult(result.id)}
+                          class="w-full rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span class="font-medium tabular-nums text-muted-foreground">
+                            {index() + 1}.
+                          </span>{" "}
+                          {getPreviewText(result.text)}
+                        </button>
+                      </li>
+                    )}
+                  </For>
+                </ol>
+              </div>
             </Show>
 
             {/* Error banner */}
