@@ -132,19 +132,24 @@ impl IntoResponse for AppError {
 }
 
 static PROMPT_TEMPLATE: &str = r#"
-You are an expert in Mandarin and English, with over 20 years of experience. Now, you are here to help me learn reading Chinese characters by parsing the given text. Parse the given text into logical words, so that I can learn how to group the characters into words. STRICTLY return the response following the format from this JSON schema: {response_schema}.
+You are an expert in Mandarin and English, with over 20 years of experience. Now, you are here to help me learn reading Chinese text by grouping the characters into logical words. For each grouping, translate to English.
 
-The given text:
+Here's the given text:
 {text}
 
-I've included some examples to help you.
+Here are some guidelines how you should group the characters:
+- For aspect particles, in the English translation, do not only say that the word is an aspect particle. Instead, explain in brief what that grammar aspect is about.
+- The tone in the pinyin should be changed according to tone sandhi rules. Example: pinyin for 一个 should be "yígè".
+- The English translation for each word should follow the context of the sentence. For example: in the sentence 我爱你, the translation of "我" should be "I". But in this sentence 你给我发工作吗, the translation of "我" should be "me".
+
+I've included some examples to help you understand:
 
 Example 1 (simple sentence):
 Input:
 我爱你
 
 Output:
-{"words":[{"hanzi":"我","pinyin":"wǒ","english":"I or me"},{"hanzi":"爱","pinyin":"ài","english":"love"},{"hanzi":"你","pinyin":"nǐ","english":"you"}]}
+{"words":[{"hanzi":"我","pinyin":"wǒ","english":"I"},{"hanzi":"爱","pinyin":"ài","english":"love"},{"hanzi":"你","pinyin":"nǐ","english":"you"}]}
 
 Some explanations for this example:
 - 我 (wǒ) acts as a subject, and it stands alone.
@@ -156,7 +161,7 @@ Input:
 哎呀，我的钱包不见。
 
 Output:
-{"words":[{"hanzi":"哎呀","pinyin":"āiyā","english":"Interjection of wonder, shock or admiration"},{"hanzi":"我","pinyin":"wǒ","english":"I / me"},{"hanzi":"的","pinyin":"de","english":"of; ~'s (possessive particle)"},{"hanzi":"钱包","pinyin":"qiánbāo","english":"purse / wallet"},{"hanzi":"不见","pinyin":"bùjiàn","english":"to have disappeared / to be missing"},{"hanzi":"了","pinyin":"le","english":"(completed action marker) / (modal particle indicating change of state, situation now)"}]}
+{"words":[{"hanzi":"哎呀","pinyin":"āiyā","english":"Interjection of wonder, shock or admiration"},{"hanzi":"我","pinyin":"wǒ","english":"I"},{"hanzi":"的","pinyin":"de","english":"of; ~'s (possessive particle)"},{"hanzi":"钱包","pinyin":"qiánbāo","english":"purse / wallet"},{"hanzi":"不见","pinyin":"bùjiàn","english":"to have disappeared / to be missing"},{"hanzi":"了","pinyin":"le","english":"(completed action marker) / (modal particle indicating change of state, situation now)"}]}
 
 Some explanations for this example:
 - 哎呀 (āiyā) is grouped as 1 word, because it is. Reading the sentence as 哎 (āi) and 呀 (yā) separately doesn't make any sense in this context.
@@ -169,7 +174,7 @@ Input:
 我的考试是在二零二六年六月二十日。我很害怕了，因为我没有读书。
 
 Output:
-{"words":[{"hanzi":"我","pinyin":"wǒ","english":"I / me"},{"hanzi":"的","pinyin":"de","english":"of; ~'s (possessive particle)"},{"hanzi":"考试","pinyin":"kǎoshì","english":"to take an exam / exam"},{"hanzi":"是","pinyin":"shì","english":"to be (followed by substantives only)"},{"hanzi":"在","pinyin":"zài","english":"to exist; to be alive / (of sb or sth) to be (located) at"},{"hanzi":"二零二六年","pinyin":"èrlíngèrliù nián","english":"year 2026"},{"hanzi":"六月","pinyin":"liù yuè","english":"June"},{"hanzi":"二十日","pinyin":"èrshí rì","english":"20th of (used for date)"},{"hanzi":"。","pinyin":".","english":"."},{"hanzi":"我","pinyin":"wǒ","english":"I / me"},{"hanzi":"很","pinyin":"hěn","english":"I / me"},{"hanzi":"害怕","pinyin":"hàipà","english":"to be afraid; to be scared"},{"hanzi":"了","pinyin":"le","english":"(completed action marker) / (modal particle indicating change of state, situation now)"},{"hanzi":"，","pinyin":",","english":","},{"hanzi":"因为","pinyin":"yīnwèi","english":"because"},{"hanzi":"我","pinyin":"wǒ","english":"I / me"},{"hanzi":"没有","pinyin":"méiyǒu","english":"haven't / hasn't"},{"hanzi":"读书","pinyin":"dúshū","english":"to study"}]}
+{"words":[{"hanzi":"我","pinyin":"wǒ","english":"I"},{"hanzi":"的","pinyin":"de","english":"of; ~'s (possessive particle)"},{"hanzi":"考试","pinyin":"kǎoshì","english":"to take an exam / exam"},{"hanzi":"是","pinyin":"shì","english":"to be (followed by substantives only)"},{"hanzi":"在","pinyin":"zài","english":"to exist; to be alive / (of sb or sth) to be (located) at"},{"hanzi":"二零二六年","pinyin":"èrlíngèrliù nián","english":"year 2026"},{"hanzi":"六月","pinyin":"liù yuè","english":"June"},{"hanzi":"二十日","pinyin":"èrshí rì","english":"20th of (used for date)"},{"hanzi":"。","pinyin":".","english":"."},{"hanzi":"我","pinyin":"wǒ","english":"I"},{"hanzi":"很","pinyin":"hěn","english":"very"},{"hanzi":"害怕","pinyin":"hàipà","english":"to be afraid; to be scared"},{"hanzi":"了","pinyin":"le","english":"(completed action marker) / (modal particle indicating change of state, situation now)"},{"hanzi":"，","pinyin":",","english":","},{"hanzi":"因为","pinyin":"yīnwèi","english":"because"},{"hanzi":"我","pinyin":"wǒ","english":"I"},{"hanzi":"没有","pinyin":"méiyǒu","english":"haven't / hasn't"},{"hanzi":"读书","pinyin":"dúshū","english":"to study"}]}
 
 Some explanations for this example:
 - 我 (wǒ) acts as a subject, and it stands alone.
@@ -184,7 +189,7 @@ Input:
 在fail的边缘啊啊啊啊哭了 算了我尽力了
 
 Output:
-{"words":[{"hanzi":"在","pinyin":"zài","english":"to exist; to be alive / (of sb or sth) to be (located) at"},{"hanzi":"fail","pinyin":"fail","english":"fail"},{"hanzi":"的","pinyin":"de","english":"of; ~'s (possessive particle)"},{"hanzi":"边缘","pinyin":"biānyuán","english":"edge / brink"},{"hanzi":"啊","pinyin":"ā","english":"interjection of surprise / Ah! / Oh!"},{"hanzi":"啊","pinyin":"ā","english":"interjection of surprise / Ah! / Oh!"},{"hanzi":"啊","pinyin":"ā","english":"interjection of surprise / Ah! / Oh!"},{"hanzi":"啊","pinyin":"ā","english":"interjection of surprise / Ah! / Oh!"},{"hanzi":"哭","pinyin":"kū","english":"to cry; to weep"},{"hanzi":" ","pinyin":" ","english":" "},{"hanzi":"算了","pinyin":"suànle","english":"let it be / let it pass / forget about it"},{"hanzi":"我","pinyin":"wǒ","english":"I / me"},{"hanzi":"尽力","pinyin":"jìnlì","english":"to strive one's hardest"},{"hanzi":"了","pinyin":"le","english":"(completed action marker) / (modal particle indicating change of state, situation now)"}]}
+{"words":[{"hanzi":"在","pinyin":"zài","english":"to exist; to be alive / (of sb or sth) to be (located) at"},{"hanzi":"fail","pinyin":"fail","english":"fail"},{"hanzi":"的","pinyin":"de","english":"of; ~'s (possessive particle)"},{"hanzi":"边缘","pinyin":"biānyuán","english":"edge / brink"},{"hanzi":"啊","pinyin":"ā","english":"interjection of surprise / Ah! / Oh!"},{"hanzi":"啊","pinyin":"ā","english":"interjection of surprise / Ah! / Oh!"},{"hanzi":"啊","pinyin":"ā","english":"interjection of surprise / Ah! / Oh!"},{"hanzi":"啊","pinyin":"ā","english":"interjection of surprise / Ah! / Oh!"},{"hanzi":"哭","pinyin":"kū","english":"to cry; to weep"},{"hanzi":" ","pinyin":" ","english":" "},{"hanzi":"算了","pinyin":"suànle","english":"let it be / let it pass / forget about it"},{"hanzi":"我","pinyin":"wǒ","english":"I"},{"hanzi":"尽力","pinyin":"jìnlì","english":"to strive one's hardest"},{"hanzi":"了","pinyin":"le","english":"(completed action marker)"}]}
 
 Some explanations for this example:
 - For English word, the field `hanzi` and `pinyin` are filled with the English word.
@@ -201,7 +206,7 @@ Input:
 原来最累的不是忙, 而是心里一直装着很多事却没有地方放.
 
 Output:
-{"words":[{"hanzi":"长大","pinyin":"zhǎngdà","english":"to grow up"},{"hanzi":"以后","pinyin":"yǐhòu","english":"after"},{"hanzi":"才","pinyin":"cái","english":"only then"},{"hanzi":"发现","pinyin":"fāxiàn","english":"to discover"},{"hanzi":"原来","pinyin":"yuánlái","english":"originally"},{"hanzi":"\n","pinyin":"\n","english":"\n"},{"hanzi":"最","pinyin":"zuì","english":"most"},{"hanzi":"累","pinyin":"lèi","english":"tired"},{"hanzi":"的","pinyin":"de","english":"possessive/attributive particle"},{"hanzi":"不是","pinyin":"búshì","english":"is not"},{"hanzi":"忙","pinyin":"máng","english":"busy"},{"hanzi":",","pinyin":",","english":","},{"hanzi":"而是","pinyin":"érshì","english":"but rather"},{"hanzi":"心里","pinyin":"xīnlǐ","english":"in one's heart"},{"hanzi":"一直","pinyin":"yìzhí","english":"always"},{"hanzi":"装","pinyin":"zhuāng","english":"to hold/contain"},{"hanzi":"着","pinyin":"zhe","english":"aspect particle"},{"hanzi":"很多","pinyin":"hěnduō","english":"many"},{"hanzi":"事","pinyin":"shì","english":"matters/things"},{"hanzi":"却","pinyin":"què","english":"but"},{"hanzi":"没有","pinyin":"méiyǒu","english":"have not"},{"hanzi":"地方","pinyin":"dìfang","english":"place"},{"hanzi":"放","pinyin":"fàng","english":"to put"},{"hanzi":".","pinyin":".","english":"."}]}
+{"words":[{"hanzi":"长大","pinyin":"zhǎngdà","english":"to grow up"},{"hanzi":"以后","pinyin":"yǐhòu","english":"after"},{"hanzi":"才","pinyin":"cái","english":"only then"},{"hanzi":"发现","pinyin":"fāxiàn","english":"to discover"},{"hanzi":"\n","pinyin":"\n","english":"\n"},{"hanzi":"原来","pinyin":"yuánlái","english":"originally"},{"hanzi":"最","pinyin":"zuì","english":"most"},{"hanzi":"累","pinyin":"lèi","english":"tired"},{"hanzi":"的","pinyin":"de","english":"possessive/attributive particle"},{"hanzi":"不是","pinyin":"búshì","english":"is not"},{"hanzi":"忙","pinyin":"máng","english":"busy"},{"hanzi":",","pinyin":",","english":","},{"hanzi":"而是","pinyin":"érshì","english":"but rather"},{"hanzi":"心里","pinyin":"xīnlǐ","english":"in one's heart"},{"hanzi":"一直","pinyin":"yìzhí","english":"always"},{"hanzi":"装","pinyin":"zhuāng","english":"to hold/contain"},{"hanzi":"着","pinyin":"zhe","english":"aspect particle"},{"hanzi":"很多","pinyin":"hěnduō","english":"many"},{"hanzi":"事","pinyin":"shì","english":"matters/things"},{"hanzi":"却","pinyin":"què","english":"but"},{"hanzi":"没有","pinyin":"méiyǒu","english":"have not"},{"hanzi":"地方","pinyin":"dìfang","english":"place"},{"hanzi":"放","pinyin":"fàng","english":"to put"},{"hanzi":".","pinyin":".","english":"."}]}
 
 Some explanations for this example:
 - Since multi-line is parsed as "\n", then this should be treated as a "word" as well, in order to ease the rendering.
@@ -224,9 +229,9 @@ Output:
 {"words":[{"hanzi":"你","pinyin":"nǐ","english":"you"},{"hanzi":"学","pinyin":"xué","english":"to learn / to study"},{"hanzi":"过","pinyih":"guo","english":"(experienced action marker)"},{"hanzi":"中文","pinyin":"Zhōngwén","english":"Chinese language"},{"hanzi":"吗","pinyin":"ma","english":"(question particle for yes-no questions)"}]}
 
 Some explanations for this example:
-- 过 (guo) is used to talk about whether something has ever happened - whether it has been experienced. Therefore, the English translation is like that.
+- 过 (guo) is used to talk about whether something has ever happened - whether it has been experienced. Therefore, the English translation is `(experienced action marker)`.
 
-For aspect particles, do not only say that the word is an aspect particle. Instead, explain in brief what that grammar aspect is about.
+STRICTLY return the response following the format from this JSON schema: {response_schema}.
 
 No tool calls are required, just use your knowledge. DO NOT hallucinate. Make no mistakes.
 "#;
