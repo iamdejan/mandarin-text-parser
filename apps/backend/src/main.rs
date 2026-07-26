@@ -131,16 +131,11 @@ impl IntoResponse for AppError {
     }
 }
 
-static PROMPT_TEMPLATE: &str = r#"
-You are an expert in Mandarin and English, with over 20 years of experience. You are here to help me learn reading Chinese text by grouping the characters into logical words. For each grouping, translate to English.
-
-Here's the given text:
-{text}
-
-Here are some guidelines on how you should group the characters:
+static SYSTEM_PROMPT_TEMPLATE: &str = r#"
+You are an expert in Mandarin and English, with over 20 years of experience. You are here to help me learn reading Chinese text by grouping the characters into logical words. For each grouping, translate to English. Here are some guidelines on how you should group the characters:
 - For aspect particles, in the English translation, do not only say that the word is an aspect particle. Instead, explain in brief what that grammar aspect is about.
 - The tone in the pinyin should be changed according to tone sandhi rules. Example: pinyin for 一个 should be "yígè".
-- The English translation for each word should follow the context of the sentence. For example: in the sentence 我爱你, the translation of "我" should be "I". But in this sentence 你给我发工作吗, the translation of "我" should be "me".
+- The English translation for each word should follow the context of the sentence.
 
 I've included some examples to help you understand:
 
@@ -281,7 +276,8 @@ struct OpenRouterErrorResponse {
 ///
 /// * `openrouter_base_url` - Base URL for the `OpenRouter` API.
 /// * `openrouter_api_key` - `OpenRouter` API key.
-/// * `prompt` - The assembled user prompt (prompt + examples + JSON schema).
+/// * `system_prompt` - A prompt that acts as a guideline for the LLM. It contains detailed instructions + examples + JSON schema.
+/// * `user_prompt` - The assembled user prompt (the input text).
 ///
 /// # Returns
 ///
@@ -295,7 +291,8 @@ struct OpenRouterErrorResponse {
 async fn send_openrouter_chat_completion(
     openrouter_base_url: &str,
     openrouter_api_key: &str,
-    prompt: &str,
+    system_prompt: &str,
+    user_prompt: &str,
 ) -> Result<ChatCompletionResponse, AppError> {
     // `response_format` must use the API-supported format. DeepSeek (and
     // OpenAI-compatible providers) expect `{"type": "json_object"}` — sending
@@ -308,11 +305,11 @@ async fn send_openrouter_chat_completion(
         "messages": [
             {
                 "role": "system",
-                "content": "Answer based only on given context. Do not search the internet or make any tool calls."
+                "content": system_prompt
             },
             {
                 "role": "user",
-                "content": prompt
+                "content": user_prompt,
             }
         ],
         "response_format": {
@@ -429,25 +426,33 @@ async fn parse_text(
         ]
     });
 
-    let prompt = PROMPT_TEMPLATE
+    let system_prompt = SYSTEM_PROMPT_TEMPLATE
         .replacen("{text}", &payload.text, 1)
         .replacen(
             "{response_schema}",
             serde_json::to_string(&response_schema).unwrap().as_str(),
             1,
         );
+    let user_prompt: String = format!("Parse the following text:\n{}", payload.text);
     let response_body =
-        send_openrouter_chat_completion(&openrouter_base_url, &openrouter_api_key, &prompt).await?;
+        send_openrouter_chat_completion(&openrouter_base_url, &openrouter_api_key, &system_prompt, &user_prompt).await?;
 
     let first_choice = response_body.choices.into_iter().next().ok_or_else(|| {
         return AppError::EmptyChoices;
     })?;
-    let raw_message_content = &first_choice.message.content;
 
-    let response: ParseTextResponse = serde_json::from_str(raw_message_content).map_err(|e| {
+    // Helper step: strip markdown formatting if present.
+    let raw_content = first_choice.message.content.trim();
+    let cleaned_content = raw_content.strip_prefix("```json")
+        .or_else(|| raw_content.strip_prefix("```"))
+        .and_then(|s| s.strip_suffix("```"))
+        .unwrap_or(raw_content)
+        .trim();
+
+    let response: ParseTextResponse = serde_json::from_str(cleaned_content).map_err(|e| {
         return AppError::Deserialization {
             context: "LLM output".to_string(),
-            detail: format!("{e}. Raw content: {raw_message_content}"),
+            detail: format!("{e}. Raw content: {cleaned_content}"),
         };
     })?;
     return Ok(Json(response));
