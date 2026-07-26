@@ -393,6 +393,7 @@ async fn parse_text(
         env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
 
     let response_schema = json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
             "words": {
