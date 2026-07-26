@@ -226,7 +226,7 @@ Input:
 你学过中文吗？
 
 Output:
-{"words":[{"hanzi":"你","pinyin":"nǐ","english":"you"},{"hanzi":"学","pinyin":"xué","english":"to learn / to study"},{"hanzi":"过","pinyih":"guo","english":"(experienced action marker)"},{"hanzi":"中文","pinyin":"Zhōngwén","english":"Chinese language"},{"hanzi":"吗","pinyin":"ma","english":"(question particle for yes-no questions)"}]}
+{"words":[{"hanzi":"你","pinyin":"nǐ","english":"you"},{"hanzi":"学","pinyin":"xué","english":"to learn / to study"},{"hanzi":"过","pinyin":"guo","english":"(experienced action marker)"},{"hanzi":"中文","pinyin":"Zhōngwén","english":"Chinese language"},{"hanzi":"吗","pinyin":"ma","english":"(question particle for yes-no questions)"}]}
 
 Some explanations for this example:
 - 过 (guo) is used to talk about whether something has ever happened - whether it has been experienced. Therefore, the English translation is `(experienced action marker)`.
@@ -396,29 +396,37 @@ async fn parse_text(
         env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| return "not_needed".to_string());
 
     let response_schema = json!({
-        "type": "array",
-        "words": {
-            "type": "object",
-            "properties": {
-                "hanzi": {
-                    "type": "string",
-                    "description": "The Chinese characters (hanzi) after grouped into logical words."
-                },
-                "pinyin": {
-                    "type": "string",
-                    "description": "The pinyin of the word, with the tone(s) included."
-                },
-                "english": {
-                    "type": "string",
-                    "description": "The English translation of the Chinese word. The translation should be relevant with the given text."
+        "type": "object",
+        "properties": {
+            "words": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "hanzi": {
+                            "type": "string",
+                            "description": "The Chinese characters (hanzi) after grouped into logical words."
+                        },
+                        "pinyin": {
+                            "type": "string",
+                            "description": "The pinyin of the word, with the tone(s) included."
+                        },
+                        "english": {
+                            "type": "string",
+                            "description": "The English translation of the Chinese word. The translation should be relevant with the given text."
+                        }
+                    },
+                    "required": [
+                        "hanzi",
+                        "pinyin",
+                        "english"
+                    ]
                 }
-            },
-            "required": [
-                "hanzi",
-                "pinyin",
-                "english"
-            ]
-        }
+            }
+        },
+        "required": [
+            "words"
+        ]
     });
 
     let prompt = PROMPT_TEMPLATE

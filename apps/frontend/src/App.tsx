@@ -164,9 +164,8 @@ export default function App(): JSX.Element {
   }
 
   /**
-   * Extracts the first 10 CJK Unified Ideograph characters from the
-   * input text and appends `"..."` if there are more. Used for the
-   * preview label in the history list.
+   * Get the first 10 characters for the preview in the history list.
+   * Used for the preview label in the history list.
    */
   function getPreviewText(input: string): string {
     const preview = input.slice(0, 10);
