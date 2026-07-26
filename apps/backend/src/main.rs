@@ -134,8 +134,21 @@ impl IntoResponse for AppError {
 static SYSTEM_PROMPT_TEMPLATE: &str = r#"
 You are an expert in Mandarin and English, with over 20 years of experience. You are here to help me learn reading Chinese text by grouping the characters into logical words. For each grouping, translate to English. Here are some guidelines on how you should group the characters:
 - For aspect particles, in the English translation, do not only say that the word is an aspect particle. Instead, explain in brief what that grammar aspect is about.
-- The tone in the pinyin should be changed according to tone sandhi rules. Example: pinyin for 一个 should be "yígè".
-- The English translation for each word should follow the context of the sentence. For example: in the sentence 我爱你, the translation of "我" should be "I". But in this sentence 你给我发工作吗, the translation of "我" should be "me".
+- The tone in the pinyin should be changed according to tone sandhi rules.
+  * Example: pinyin for 一个 should be "yígè".
+- The English translation for each word should follow the context of the sentence.
+  * Example: in the sentence 我爱你, the translation of "我" should be "I". But in this sentence 你给我发工作吗, the translation of "我" should be "me".
+- Directional & Resultative Complements: Always group verbs and adjectives with their directional complements (e.g., 起来, 出来, 下去, 过来, 上去) or resultative complements (e.g., 完, 懂, 见, 好, 到, 错) into a SINGLE word.
+  * Example: 好起来 (to get better), 站起来 (to stand up), 听懂 (to understand), 看见 (to see), 做好 (to finish doing).
+  * Do NOT split 好 and 起来 into separate entries.
+- Positional & Locative Words: Group nouns with postpositions/locative markers (e.g., 上, 里, 下, 旁, 中) as single words when indicating a location.
+  * Example: 房间里 (inside the room), 桌子上 (on the table).
+- Directional Complements (趋向补语): Always group an action verb together with its simple or compound directional complement into a SINGLE logical word.
+  * Simple Directional Complements (Verb + 来 / 去): Group verbs combined with 来 (movement towards speaker) or 去 (movement away from speaker) together.
+    Examples: 进来 (come in), 进去 (go in), 出来 (come out), 出去 (go out), 上来 (come up), 下去 (go down), 回来 (come back), 过去 (go over).
+  * Compound Directional Complements (Verb + 复合趋向补语): When direction verbs like 进, 出, 上, 下, 回, 过, 起 are paired with 来 or 去 after an action verb, combine all three components into one word.
+    Examples: 跑出来 (to run out), 拿出来 (to take out), 走进去 (to walk in), 站起来 (to stand up), 搬过去 (to move over).
+  * Exception for Separated Objects: If an object is inserted inside the complement (e.g., 拿出一本书来 or 跑进房间去), group the verb and directional prefix (e.g., 拿出) as one word, the object (一本书) separately, and the final direction marker (来) as its own marker.
 
 I've included some examples to help you understand:
 
@@ -226,6 +239,31 @@ Output:
 Some explanations for this example:
 - 过 (guo) is used to talk about whether something has ever happened - whether it has been experienced. Therefore, the English translation is `(experienced action marker)`.
 
+Example 8 (sentence with directional complement 起来):
+Input:
+一切都会好起来的。
+
+Output:
+{"words":[{"hanzi":"一切","pinyin":"yíqiè","english":"everything / all"},{"hanzi":"都","pinyin":"dōu","english":"all / both"},{"hanzi":"会","pinyin":"huì","english":"will / can"},{"hanzi":"好起来","pinyin":"hǎo qǐlái","english":"to get better / to improve (directional complement)"},{"hanzi":"的","pinyin":"de","english":"modal particle"},{"hanzi":"。","pinyin":".","english":"."}]}
+
+Example 9 (sentence with resultative complement 看见 and positional location 桌子上):
+Input:
+你看见桌子上的手机了吗？
+
+Output:
+{"words":[{"hanzi":"你","pinyin":"nǐ","english":"you"},{"hanzi":"看见","pinyin":"kànjiàn","english":"to see / to catch sight of (resultative complement)"},{"hanzi":"桌子上","pinyin":"zhuōzi shàng","english":"on the table (locative)"},{"hanzi":"的","pinyin":"de","english":"possessive/attributive particle"},{"hanzi":"手机","pinyin":"shǒujī","english":"mobile phone"},{"hanzi":"了","pinyin":"le","english":"completed action marker"},{"hanzi":"吗","pinyin":"ma","english":"question particle"},{"hanzi":"？","pinyin":"?","english":"?"}]}
+
+Example 10 (sentence with compound directional complement 跑出来):
+Input:
+一只小狗从房间里跑出来了。
+
+Output:
+{"words":[{"hanzi":"一只","pinyin":"yì zhī","english":"one / a (measure word for animals)"},{"hanzi":"小狗","pinyin":"xiǎogǒu","english":"puppy / small dog"},{"hanzi":"从","pinyin":"cóng","english":"from"},{"hanzi":"房间里","pinyin":"fángjiān lǐ","english":"inside the room (locative)"},{"hanzi":"跑出来","pinyin":"pǎo chūlái","english":"to run out / to come running out (directional complement)"},{"hanzi":"了","pinyin":"le","english":"completed action marker"}]}
+
+Some explanations for this example:
+- 跑出来 (pǎo chūlái) is formed by the action verb 跑 (to run) + the compound directional complement 出来 (out towards the speaker). They MUST be grouped into one logical word meaning "to run out".
+- 房间里 (fángjiān lǐ) combines the noun 房间 (room) with the postposition 里 (inside) into a single locative word.
+
 STRICTLY return the response following the format from this JSON schema: {response_schema}
 "#;
 
@@ -302,6 +340,7 @@ async fn send_openrouter_chat_completion(
     // regex, text).
     let request_body = json!({
         "model": "deepseek/deepseek-v4-flash",
+        "temperature": 0.0,
         "messages": [
             {
                 "role": "system",
@@ -434,7 +473,10 @@ async fn parse_text(
             serde_json::to_string(&response_schema).unwrap().as_str(),
             1,
         );
-    let user_prompt: String = format!("Parse the following text:\n{}", payload.text);
+    let user_prompt: String = format!(
+        "Parse the following text inside the <text> tags according to the rules and output JSON format:\n<text>\n{}\n</text>",
+        payload.text
+    );
     let response_body = send_openrouter_chat_completion(
         &openrouter_base_url,
         &openrouter_api_key,

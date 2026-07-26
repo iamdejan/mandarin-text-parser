@@ -48,6 +48,8 @@ export default function App(): JSX.Element {
   const maxFontScale = 3;
   const [fontScale, setFontScale] = createSignal(1);
 
+  const [currentInputText, setCurrentInputText] = createSignal("");
+
   const { results, addResult, getResult, deleteResult } = createResultStore();
 
   /**
@@ -111,6 +113,7 @@ export default function App(): JSX.Element {
       const data: ParseResponse = (await response.json()) as ParseResponse;
       const saved = addResult(text(), data.words);
       setWords(saved.words);
+      setCurrentInputText(text());
       setView("results");
     } catch (err: unknown) {
       const message =
@@ -181,6 +184,7 @@ export default function App(): JSX.Element {
     const result = getResult(id);
     if (result) {
       setWords(result.words);
+      setCurrentInputText(result.text);
       setActiveWordIndex(null);
       setView("results");
     }
@@ -292,6 +296,30 @@ export default function App(): JSX.Element {
                 Parsed Result
               </h2>
               <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    copy(currentInputText()).catch(() => {});
+                  }}
+                  aria-label="Copy input text"
+                  title="Copy input text"
+                  class="inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="h-4 w-4"
+                    aria-hidden="true"
+                  >
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </button>
                 {/* Zoom controls — increase/decrease font size for the
                     parsed hanzi + pinyin display. */}
                 <div class="flex items-center rounded-md border border-input">
@@ -446,6 +474,37 @@ export default function App(): JSX.Element {
                             {index() + 1}.
                           </span>{" "}
                           {getPreviewText(result.text)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            copy(result.text).catch(() => {});
+                          }}
+                          aria-label="Copy input text"
+                          title="Copy input text"
+                          class="shrink-0 rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="h-4 w-4"
+                            aria-hidden="true"
+                          >
+                            <rect
+                              x="9"
+                              y="9"
+                              width="13"
+                              height="13"
+                              rx="2"
+                              ry="2"
+                            />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
                         </button>
                         <button
                           type="button"
