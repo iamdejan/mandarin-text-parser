@@ -435,8 +435,13 @@ async fn parse_text(
             1,
         );
     let user_prompt: String = format!("Parse the following text:\n{}", payload.text);
-    let response_body =
-        send_openrouter_chat_completion(&openrouter_base_url, &openrouter_api_key, &system_prompt, &user_prompt).await?;
+    let response_body = send_openrouter_chat_completion(
+        &openrouter_base_url,
+        &openrouter_api_key,
+        &system_prompt,
+        &user_prompt,
+    )
+    .await?;
 
     let first_choice = response_body.choices.into_iter().next().ok_or_else(|| {
         return AppError::EmptyChoices;
@@ -444,9 +449,10 @@ async fn parse_text(
 
     // Helper step: strip markdown formatting if present.
     let raw_content = first_choice.message.content.trim();
-    let cleaned_content = raw_content.strip_prefix("```json")
-        .or_else(|| raw_content.strip_prefix("```"))
-        .and_then(|s| s.strip_suffix("```"))
+    let cleaned_content = raw_content
+        .strip_prefix("```json")
+        .or_else(|| return raw_content.strip_prefix("```"))
+        .and_then(|s| return s.strip_suffix("```"))
         .unwrap_or(raw_content)
         .trim();
 
