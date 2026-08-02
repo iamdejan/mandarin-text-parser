@@ -332,14 +332,12 @@ async fn send_openrouter_chat_completion(
     system_prompt: &str,
     user_prompt: &str,
 ) -> Result<ChatCompletionResponse, AppError> {
-    // `response_format` must use the API-supported format. DeepSeek (and
-    // OpenAI-compatible providers) expect `{"type": "json_object"}` — sending
-    // a raw JSON Schema object with `"type": "object"` at the root is rejected
+    // `response_format` must use the API-supported format. DeepSeek expects `{"type": "json_object"}` —
+    // sending a raw JSON Schema object with `"type": "object"` at the root is rejected
     // because the provider interprets `response_format.type` and sees `object`,
-    // which is not a recognised variant (valid: json_object, json_schema,
-    // regex, text).
+    // which is not a recognised variant (valid: json_object, json_schema, regex, text).
     let request_body = json!({
-        "model": "deepseek/deepseek-v4-flash",
+        "model": "deepseek/deepseek-v4-flash-0731",
         "temperature": 0.0,
         "messages": [
             {
@@ -358,7 +356,6 @@ async fn send_openrouter_chat_completion(
             "only": ["deepseek"],
             "allow_fallbacks": false
         },
-        "thinking": {"type": "disabled"},
         "reasoning": {"effort": "none"}
     });
     let reqwest_client = reqwest::Client::builder().build().map_err(|e| {
