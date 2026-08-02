@@ -96,11 +96,15 @@ export default function App(): JSX.Element {
     setWords([]);
     setActiveWordIndex(null);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120_000);
+
     try {
       const response = await fetch(`${baseUrl}/text/parse`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: input }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -116,10 +120,17 @@ export default function App(): JSX.Element {
       setCurrentInputText(text());
       setView("results");
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "An unknown error occurred.";
-      setError(message);
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError(
+          "Request timed out after 2 minutes. Please try again with shorter text.",
+        );
+      } else {
+        const message =
+          err instanceof Error ? err.message : "An unknown error occurred.";
+        setError(message);
+      }
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   }

@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, time::Duration};
 
 use axum::{
     Json, Router,
@@ -7,6 +7,7 @@ use axum::{
     routing::{get, post},
 };
 
+use reqwest::ClientBuilder;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tower_http::cors::CorsLayer;
@@ -357,7 +358,9 @@ async fn send_openrouter_chat_completion(
         "provider": {
             "only": ["deepseek"],
             "allow_fallbacks": false
-        }
+        },
+        "thinking": {"type": "disabled"},
+        "reasoning": {"effort": "none"}
     });
     let reqwest_client = reqwest::Client::builder().build().map_err(|e| {
         return AppError::Internal(format!("failed to build HTTP client: {e}"));
@@ -368,7 +371,8 @@ async fn send_openrouter_chat_completion(
             format!("{openrouter_base_url}/chat/completions"),
         )
         .header("Authorization", format!("Bearer {openrouter_api_key}"))
-        .json(&request_body);
+        .json(&request_body)
+        .timeout(Duration::from_mins(2));
     let response = request.send().await.map_err(|e| {
         return AppError::Internal(format!("HTTP request to OpenRouter failed: {e}"));
     })?;
