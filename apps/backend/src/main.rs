@@ -7,7 +7,6 @@ use axum::{
     routing::{get, post},
 };
 
-use reqwest::ClientBuilder;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tower_http::cors::CorsLayer;
