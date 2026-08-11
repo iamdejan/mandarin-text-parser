@@ -353,7 +353,7 @@ async fn send_openrouter_chat_completion(
             "type": "json_object"
         },
         "provider": {
-            "only": ["cloudflare/fp8"],
+            "only": ["gmicloud/fp8"],
             "allow_fallbacks": false
         },
         "reasoning": {"effort": "none"}
