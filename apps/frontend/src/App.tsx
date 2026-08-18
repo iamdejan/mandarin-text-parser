@@ -445,6 +445,7 @@ export default function App(): JSX.Element {
                   disabled={loading()}
                   placeholder="e.g. 我爱你"
                   class="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground ring-offset-background transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  spellcheck={false}
                 />
                 <p
                   class="mt-1 text-right text-xs text-muted-foreground"
