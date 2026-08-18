@@ -119,6 +119,7 @@ export default function App(): JSX.Element {
       setWords(saved.words);
       setCurrentInputText(text());
       setView("results");
+      setText("");
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") {
         setError(
