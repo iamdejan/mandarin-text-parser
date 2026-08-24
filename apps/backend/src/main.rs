@@ -353,7 +353,8 @@ async fn send_openrouter_chat_completion(
             "type": "json_object"
         },
         "provider": {
-            "only": ["gmicloud/fp8"],
+            "only": ["deepseek", "digitalocean"],
+            "order": ["deepseek", "digitalocean"],
             "allow_fallbacks": false
         },
         "reasoning": {"effort": "none"}
