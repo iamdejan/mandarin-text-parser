@@ -4,6 +4,7 @@ import ThemeToggle from "./components/ThemeToggle";
 import { createTheme } from "./lib/use-theme";
 import type { Word, ParseResponse, SavedResult } from "./lib/types";
 import { createResultStore } from "./lib/result-store";
+import { convertHanzi, type HanziVariant } from "./lib/hanzi-variant";
 
 /**
  * View states for the single-page application.
@@ -39,6 +40,12 @@ export default function App(): JSX.Element {
     null,
   );
   const [view, setView] = createSignal<View>("form");
+
+  // The character-script variant in which the parsed hanzi are
+  // displayed in the results view. Defaults to the original input and
+  // can be changed via the dropdown in the results view.
+  const [hanziVariant, setHanziVariant] =
+    createSignal<HanziVariant>("original");
 
   const [deletePendingId, setDeletePendingId] = createSignal<string | null>(
     null,
@@ -132,6 +139,9 @@ export default function App(): JSX.Element {
       setWords(saved.words);
       setCurrentInputText(text());
       setCurrentResultId(saved.id);
+      // Each newly opened result starts with the original characters,
+      // so a previous session's script choice does not leak into it.
+      setHanziVariant("original");
       setView("results");
       setText("");
     } catch (err: unknown) {
@@ -213,8 +223,31 @@ export default function App(): JSX.Element {
       setCurrentInputText(result.text);
       setCurrentResultId(result.id);
       setActiveWordIndex(null);
+      // Each newly opened result starts with the original characters,
+      // so a previous session's script choice does not leak into it.
+      setHanziVariant("original");
       setView("results");
     }
+  }
+
+  /**
+   * Returns the hanzi of a word converted to the currently selected
+   * character variant. The `"original"` variant returns the word's
+   * hanzi untouched; the other variants run it through OpenCC.
+   */
+  function displayHanzi(word: Word): string {
+    return convertHanzi(word.hanzi, hanziVariant());
+  }
+
+  /**
+   * Handler for changing the character-variant dropdown in the results
+   * view. Updates the `hanziVariant` signal so every displayed hanzi
+   * re-renders in the selected script.
+   */
+  function handleVariantChange(
+    event: Event & { currentTarget: HTMLSelectElement },
+  ): void {
+    setHanziVariant(event.currentTarget.value as HanziVariant);
   }
 
   /**
@@ -279,9 +312,13 @@ export default function App(): JSX.Element {
     if (newIndex !== null) {
       const word = words()[index];
       if (word !== undefined && isHanziWord(word)) {
-        copy(`${word.hanzi} (${word.pinyin}): ${word.english}`).catch(() => {
-          /* clipboard write is best-effort — ignore failures */
-        });
+        // Copy the hanzi in the currently displayed variant so what the
+        // user sees is what gets copied.
+        copy(`${displayHanzi(word)} (${word.pinyin}): ${word.english}`).catch(
+          () => {
+            /* clipboard write is best-effort — ignore failures */
+          },
+        );
       }
     }
   }
@@ -425,6 +462,19 @@ export default function App(): JSX.Element {
                 Parsed Result
               </h2>
               <div class="flex items-center gap-2">
+                {/* Character-variant dropdown — switches every displayed
+                    hanzi between the original input, Simplified, and
+                    Traditional Chinese. */}
+                <select
+                  value={hanziVariant()}
+                  onChange={handleVariantChange}
+                  aria-label="Character variant"
+                  class="rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="original">Original Input</option>
+                  <option value="simplified">Simplified (简体字)</option>
+                  <option value="traditional">Traditional (繁體字)</option>
+                </select>
                 <button
                   type="button"
                   onClick={() => {
@@ -535,9 +585,9 @@ export default function App(): JSX.Element {
                           }}
                           role="button"
                           tabIndex={0}
-                          aria-label={`${word.hanzi}: ${word.english}`}
+                          aria-label={`${displayHanzi(word)}: ${word.english}`}
                         >
-                          <span class="hanzi">{word.hanzi}</span>
+                          <span class="hanzi">{displayHanzi(word)}</span>
                           <Show when={isHanziWord(word)}>
                             <span class="pinyin">{word.pinyin}</span>
                           </Show>

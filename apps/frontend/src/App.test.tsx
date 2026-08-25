@@ -1009,4 +1009,148 @@ describe("App", function appDescribe() {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Title")).toHaveValue("你好");
   });
+
+  // ---------- Character-variant dropdown tests ----------
+
+  /**
+   * Words whose hanzi differ between Simplified and Traditional so
+   * that script switching can be observed in the rendered output.
+   */
+  const convertibleWords = [
+    { hanzi: "汉语", pinyin: "hànyǔ", english: "Chinese language" },
+    { hanzi: "，", pinyin: "，", english: "," },
+  ];
+
+  /**
+   * Helper that navigates to the results view using the convertible
+   * word fixture so tests can assert on converted characters.
+   */
+  async function navigateToConvertibleResults(
+    user: ReturnType<typeof userEvent.setup>,
+  ): Promise<void> {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ words: convertibleWords }), {
+        status: 200,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "汉语");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+  }
+
+  it("renders the character-variant dropdown with three options on the results view", async function rendersVariantDropdown() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    const dropdown = screen.getByLabelText(
+      "Character variant",
+    ) as HTMLSelectElement;
+    expect(dropdown).toBeInTheDocument();
+    const optionLabels = [...dropdown.options].map((o) => o.textContent);
+    expect(optionLabels).toEqual([
+      "Original Input",
+      "Simplified (简体字)",
+      "Traditional (繁體字)",
+    ]);
+    // The default selection must be the original input.
+    expect(dropdown.value).toBe("original");
+  });
+
+  it("shows the original hanzi by default and when Original Input is selected", async function showsOriginalHanzi() {
+    const user = userEvent.setup();
+    await navigateToConvertibleResults(user);
+
+    // Default view shows the untouched hanzi.
+    expect(screen.getByText("汉语")).toBeInTheDocument();
+
+    // Switch away and back — original characters return.
+    await user.selectOptions(screen.getByLabelText("Character variant"), [
+      "traditional",
+    ]);
+    await user.selectOptions(screen.getByLabelText("Character variant"), [
+      "original",
+    ]);
+    expect(screen.getByText("汉语")).toBeInTheDocument();
+  });
+
+  it("converts displayed hanzi to Traditional when Traditional is selected", async function convertsToTraditional() {
+    const user = userEvent.setup();
+    await navigateToConvertibleResults(user);
+
+    await user.selectOptions(screen.getByLabelText("Character variant"), [
+      "traditional",
+    ]);
+
+    expect(screen.getByText("漢語")).toBeInTheDocument();
+    expect(screen.queryByText("汉语")).not.toBeInTheDocument();
+  });
+
+  it("converts displayed hanzi to Simplified when Simplified is selected", async function convertsToSimplified() {
+    const user = userEvent.setup();
+
+    // Use Traditional input so conversion to Simplified is observable.
+    const traditionalWords = [
+      { hanzi: "漢語", pinyin: "hànyǔ", english: "Chinese language" },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ words: traditionalWords }), {
+        status: 200,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "漢語");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+
+    await user.selectOptions(screen.getByLabelText("Character variant"), [
+      "simplified",
+    ]);
+
+    expect(screen.getByText("汉语")).toBeInTheDocument();
+    expect(screen.queryByText("漢語")).not.toBeInTheDocument();
+  });
+
+  it("resets the variant to Original Input when a new result is opened", async function resetsVariantOnNewResult() {
+    const user = userEvent.setup();
+    await navigateToConvertibleResults(user);
+
+    // Switch to Traditional, then go back to the form view.
+    await user.selectOptions(screen.getByLabelText("Character variant"), [
+      "traditional",
+    ]);
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    await screen.findByRole("heading", { name: "Mandarin Text Parser" });
+
+    // Re-open the same result from history.
+    await user.click(screen.getByText("汉语"));
+
+    await screen.findByRole("heading", { name: "Parsed Result" });
+    // The dropdown must be back to "original" and the hanzi shown as-is.
+    const dropdown = screen.getByLabelText(
+      "Character variant",
+    ) as HTMLSelectElement;
+    expect(dropdown.value).toBe("original");
+    expect(screen.getByText("汉语")).toBeInTheDocument();
+  });
+
+  it("copies the hanzi in the selected variant to clipboard on word click", async function copiesSelectedVariant() {
+    const writeTextSpy = vi.spyOn(navigator.clipboard, "writeText");
+
+    const user = userEvent.setup();
+    await navigateToConvertibleResults(user);
+
+    // Switch to Traditional first, then click the word.
+    await user.selectOptions(screen.getByLabelText("Character variant"), [
+      "traditional",
+    ]);
+    const chineseWord = await screen.findByTitle("Chinese language");
+    await user.click(chineseWord);
+
+    expect(writeTextSpy).toHaveBeenCalledWith("漢語 (hànyǔ): Chinese language");
+  });
 });
