@@ -232,11 +232,17 @@ export default function App(): JSX.Element {
    * title if set, otherwise the preview text).
    */
   function handleEditTitleClick(id: string | null): void {
-    if (id === null) return;
+    if (id === null) {
+      return;
+    }
+
     const result = getResult(id);
     // Guard against stale IDs (e.g. the result was deleted while the
     // results view was open).
-    if (!result) return;
+    if (!result) {
+      return;
+    }
+
     setEditTitleId(id);
     setEditTitleValue(getResultTitle(result));
   }
@@ -288,8 +294,14 @@ export default function App(): JSX.Element {
   function adjustFontScale(delta: number): void {
     setFontScale((prev) => {
       const next = prev + delta;
-      if (next < minFontScale) return minFontScale;
-      if (next > maxFontScale) return maxFontScale;
+      if (next < minFontScale) {
+        return minFontScale;
+      }
+
+      if (next > maxFontScale) {
+        return maxFontScale;
+      }
+
       return Math.round(next * 100) / 100;
     });
   }

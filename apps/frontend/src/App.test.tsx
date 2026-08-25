@@ -507,7 +507,9 @@ describe("App", function appDescribe() {
       "main .rounded-md.border.border-border.p-4",
     );
     expect(parsedContainer).not.toBeNull();
-    if (!parsedContainer) return;
+    if (!parsedContainer) {
+      return;
+    }
 
     expect(
       getComputedStyle(parsedContainer).getPropertyValue("--font-scale"),

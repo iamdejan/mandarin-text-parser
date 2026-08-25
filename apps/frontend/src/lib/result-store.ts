@@ -17,6 +17,7 @@ function generateId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
+
   return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
@@ -30,9 +31,15 @@ function generateId(): string {
 function loadResults(): SavedResult[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    if (!raw) {
+      return [];
+    }
+
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
     return parsed as SavedResult[];
   } catch {
     return [];
@@ -140,7 +147,10 @@ export function createResultStore(): {
   function updateResultTitle(id: string, title: string): void {
     const trimmed = title.trim();
     const updated = results().map((result) => {
-      if (result.id !== id) return result;
+      if (result.id !== id) {
+        return result;
+      }
+
       // An empty title means "use the default preview", so the field
       // is removed entirely rather than stored as an empty string.
       // The result is rebuilt without the key because
