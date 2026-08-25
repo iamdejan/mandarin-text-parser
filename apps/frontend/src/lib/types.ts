@@ -30,4 +30,9 @@ export type SavedResult = {
   words: Word[];
   /** Unix timestamp (ms) of when the result was created. */
   timestamp: number;
+  /**
+   * Optional user-defined title. When absent, the UI falls back to a
+   * preview of the original input text.
+   */
+  title?: string;
 };

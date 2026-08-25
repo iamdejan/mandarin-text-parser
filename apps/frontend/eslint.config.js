@@ -28,6 +28,10 @@ export default [
     rules: {
       // Enforces explicit return types on all functions
       "@typescript-eslint/explicit-function-return-type": "error",
+      // Requires braces around every if/else/for/while body, so
+      // single-line guards like `if (!result) return;` are disallowed
+      // and all branches are standardized as multi-line blocks.
+      curly: ["error", "all"],
     },
   },
   {
