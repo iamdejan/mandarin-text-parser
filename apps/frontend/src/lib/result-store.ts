@@ -65,12 +65,15 @@ function persistResults(results: SavedResult[]): void {
  *  - `getResult` — looks up a single result by its `id`.
  *  - `deleteResult` — removes a result by its `id` from the store
  *    and persists the updated array to localStorage.
+ *  - `updateResultTitle` — renames a result by its `id` and persists
+ *    the updated array to localStorage.
  */
 export function createResultStore(): {
   results: () => SavedResult[];
   addResult: (text: string, words: Word[]) => SavedResult;
   getResult: (id: string) => SavedResult | undefined;
   deleteResult: (id: string) => void;
+  updateResultTitle: (id: string, title: string) => void;
 } {
   const [results, setResults] = createSignal<SavedResult[]>(loadResults());
 
@@ -121,5 +124,40 @@ export function createResultStore(): {
     persistResults(updated);
   }
 
-  return { results, addResult, getResult, deleteResult };
+  /**
+   * Updates the user-defined title of a saved result and persists the
+   * updated array to localStorage.
+   *
+   * An empty (or whitespace-only) title resets the result back to the
+   * default behaviour of showing the text preview, by removing the
+   * `title` field entirely.
+   *
+   * If no result with the given `id` exists, the call is a no-op.
+   *
+   * @param id - The `id` of the result to rename.
+   * @param title - The new title, or an empty string to reset it.
+   */
+  function updateResultTitle(id: string, title: string): void {
+    const trimmed = title.trim();
+    const updated = results().map((result) => {
+      if (result.id !== id) return result;
+      // An empty title means "use the default preview", so the field
+      // is removed entirely rather than stored as an empty string.
+      // The result is rebuilt without the key because
+      // `exactOptionalPropertyTypes` forbids assigning `undefined`.
+      if (trimmed.length === 0) {
+        return {
+          id: result.id,
+          text: result.text,
+          words: result.words,
+          timestamp: result.timestamp,
+        };
+      }
+      return { ...result, title: trimmed };
+    });
+    setResults(updated);
+    persistResults(updated);
+  }
+
+  return { results, addResult, getResult, deleteResult, updateResultTitle };
 }

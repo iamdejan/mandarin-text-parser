@@ -2,7 +2,7 @@ import { createSignal, For, Show, Switch, Match, type JSX } from "solid-js";
 import { useClipboard } from "solidjs-use";
 import ThemeToggle from "./components/ThemeToggle";
 import { createTheme } from "./lib/use-theme";
-import type { Word, ParseResponse } from "./lib/types";
+import type { Word, ParseResponse, SavedResult } from "./lib/types";
 import { createResultStore } from "./lib/result-store";
 
 /**
@@ -50,7 +50,20 @@ export default function App(): JSX.Element {
 
   const [currentInputText, setCurrentInputText] = createSignal("");
 
-  const { results, addResult, getResult, deleteResult } = createResultStore();
+  // The ID of the result currently displayed in the results view. It is
+  // needed so the "Edit title" pencil button in that view knows which
+  // history item to rename.
+  const [currentResultId, setCurrentResultId] = createSignal<string | null>(
+    null,
+  );
+
+  // The ID of the history item whose title is being edited, plus the
+  // current value of the title input inside the edit-title popup.
+  const [editTitleId, setEditTitleId] = createSignal<string | null>(null);
+  const [editTitleValue, setEditTitleValue] = createSignal("");
+
+  const { results, addResult, getResult, deleteResult, updateResultTitle } =
+    createResultStore();
 
   /**
    * Updates the text signal and the character count whenever the user
@@ -118,6 +131,7 @@ export default function App(): JSX.Element {
       const saved = addResult(text(), data.words);
       setWords(saved.words);
       setCurrentInputText(text());
+      setCurrentResultId(saved.id);
       setView("results");
       setText("");
     } catch (err: unknown) {
@@ -197,9 +211,55 @@ export default function App(): JSX.Element {
     if (result) {
       setWords(result.words);
       setCurrentInputText(result.text);
+      setCurrentResultId(result.id);
       setActiveWordIndex(null);
       setView("results");
     }
+  }
+
+  /**
+   * Returns the display title of a saved result: the user-defined
+   * title when one has been set, otherwise a preview of the original
+   * input text.
+   */
+  function getResultTitle(result: SavedResult): string {
+    return result.title ?? getPreviewText(result.text);
+  }
+
+  /**
+   * Opens the edit-title popup for the given history item. The input
+   * is pre-filled with the result's current display title (the custom
+   * title if set, otherwise the preview text).
+   */
+  function handleEditTitleClick(id: string | null): void {
+    if (id === null) return;
+    const result = getResult(id);
+    // Guard against stale IDs (e.g. the result was deleted while the
+    // results view was open).
+    if (!result) return;
+    setEditTitleId(id);
+    setEditTitleValue(getResultTitle(result));
+  }
+
+  /**
+   * Confirms the title edit: persists the new title via
+   * `updateResultTitle`, then dismisses the popup. An empty input
+   * resets the title back to the default text preview.
+   */
+  function handleConfirmEditTitle(): void {
+    const id = editTitleId();
+    if (id !== null) {
+      updateResultTitle(id, editTitleValue());
+      setEditTitleId(null);
+    }
+  }
+
+  /**
+   * Cancels the title edit by closing the popup without applying any
+   * change to the stored title.
+   */
+  function handleCancelEditTitle(): void {
+    setEditTitleId(null);
   }
 
   /**
@@ -299,6 +359,51 @@ export default function App(): JSX.Element {
         </div>
       </Show>
 
+      {/* Edit-title popup — overlays the entire page when the user
+          clicks the pencil icon on a history item (or in the results
+          view). Clicking outside the dialog (on the backdrop) cancels
+          the edit without applying changes. */}
+      <Show when={editTitleId() !== null}>
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={handleCancelEditTitle}
+          role="dialog"
+          aria-label="Edit Title"
+        >
+          <div
+            class="mx-4 w-full max-w-sm rounded-lg border border-border bg-background p-6 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 class="text-lg font-semibold text-foreground">Edit Title</h3>
+            {/* The input is pre-filled with the current title (or the
+                preview text when no custom title exists). */}
+            <input
+              type="text"
+              value={editTitleValue()}
+              onInput={(e) => setEditTitleValue(e.currentTarget.value)}
+              aria-label="Title"
+              class="mt-3 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <div class="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelEditTitle}
+                class="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmEditTitle}
+                class="inline-flex items-center justify-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Edit
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
+
       <Switch>
         {/* ---------- Results view ---------- */}
         <Match when={view() === "results"}>
@@ -330,6 +435,30 @@ export default function App(): JSX.Element {
                   >
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </button>
+                {/* Edit-title pencil — opens the edit-title popup for
+                    the result currently shown in this view. */}
+                <button
+                  type="button"
+                  onClick={() => handleEditTitleClick(currentResultId())}
+                  aria-label="Edit title"
+                  title="Edit title"
+                  class="inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="h-4 w-4"
+                    aria-hidden="true"
+                  >
+                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                    <path d="m15 5 4 4" />
                   </svg>
                 </button>
                 {/* Zoom controls — increase/decrease font size for the
@@ -467,8 +596,9 @@ export default function App(): JSX.Element {
 
             {/* History list — shows all previously saved parsing results
                 sorted by timestamp (most recent first). Each item displays
-                the numeric order and a preview of the first 10 hanzi
-                characters from the original input text. */}
+                the numeric order and its title (the custom title when set,
+                otherwise a preview of the first 10 characters from the
+                original input text). */}
             <Show when={results().length > 0}>
               <div class="mt-6">
                 <h2 class="mb-2 text-lg font-semibold text-foreground">
@@ -486,7 +616,7 @@ export default function App(): JSX.Element {
                           <span class="font-medium tabular-nums text-muted-foreground">
                             {index() + 1}.
                           </span>{" "}
-                          {getPreviewText(result.text)}
+                          {getResultTitle(result)}
                         </button>
                         <button
                           type="button"
@@ -517,6 +647,30 @@ export default function App(): JSX.Element {
                               ry="2"
                             />
                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
+                        </button>
+                        {/* Edit-title pencil — opens the edit-title
+                            popup for this history item. */}
+                        <button
+                          type="button"
+                          onClick={() => handleEditTitleClick(result.id)}
+                          aria-label="Edit title"
+                          title="Edit title"
+                          class="shrink-0 rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="h-4 w-4"
+                            aria-hidden="true"
+                          >
+                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                            <path d="m15 5 4 4" />
                           </svg>
                         </button>
                         <button

@@ -2,6 +2,7 @@ import { describe, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
+import type { SavedResult } from "./lib/types";
 
 const mockWords = [
   { hanzi: "你好", pinyin: "nǐhǎo", english: "hello" },
@@ -915,5 +916,95 @@ describe("App", function appDescribe() {
     const raw = localStorage.getItem("parsed-results");
     const parsed: unknown = JSON.parse(raw!);
     expect(Array.isArray(parsed) && (parsed as unknown[]).length).toBe(1);
+  });
+
+  // ---------- Edit title tests ----------
+
+  it("shows an edit-title pencil button on each history list item", async function showsEditTitleButtonInList() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    const editButtons = screen.getAllByRole("button", { name: "Edit title" });
+    expect(editButtons.length).toBe(1);
+  });
+
+  it("shows the edit-title popup with the preview text as default value", async function editPopupDefaultsToPreview() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    await user.click(screen.getByRole("button", { name: "Edit title" }));
+
+    expect(
+      screen.getByRole("dialog", { name: "Edit Title" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toHaveValue("你好");
+  });
+
+  it("updates the history item title when Edit is clicked", async function editAppliesNewTitle() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    await user.click(screen.getByRole("button", { name: "Edit title" }));
+    const input = screen.getByLabelText("Title");
+    await user.clear(input);
+    await user.type(input, "My custom title");
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+
+    // The dialog should be gone.
+    expect(
+      screen.queryByRole("dialog", { name: "Edit Title" }),
+    ).not.toBeInTheDocument();
+
+    // The history list should now show the custom title.
+    expect(screen.getByText("My custom title")).toBeInTheDocument();
+
+    // The custom title should be persisted to localStorage.
+    const raw = localStorage.getItem("parsed-results");
+    const stored: SavedResult[] = JSON.parse(raw!) as SavedResult[];
+    expect(stored[0]?.title).toBe("My custom title");
+  });
+
+  it("closes the popup without changing the title when Cancel is clicked", async function editCancelKeepsTitle() {
+    const user = userEvent.setup();
+    await analyzeAndReturnToForm(user);
+
+    await user.click(screen.getByRole("button", { name: "Edit title" }));
+    const input = screen.getByLabelText("Title");
+    await user.clear(input);
+    await user.type(input, "Should not persist");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    // The dialog should be gone.
+    expect(
+      screen.queryByRole("dialog", { name: "Edit Title" }),
+    ).not.toBeInTheDocument();
+
+    // The history list should still show the default preview text.
+    expect(screen.queryByText("Should not persist")).not.toBeInTheDocument();
+    expect(screen.getByText("你好")).toBeInTheDocument();
+
+    // No title should be persisted in localStorage.
+    const raw = localStorage.getItem("parsed-results");
+    const stored: SavedResult[] = JSON.parse(raw!) as SavedResult[];
+    expect(stored[0]?.title).toBeUndefined();
+  });
+
+  it("shows the edit-title button on the history detail (results) view", async function showsEditTitleButtonOnDetail() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    // The pencil should be present next to the "Copy input text"
+    // button on the results view.
+    const editButton = screen.getByRole("button", { name: "Edit title" });
+    expect(editButton).toBeInTheDocument();
+
+    // Clicking it opens the same edit-title popup.
+    await user.click(editButton);
+    expect(
+      screen.getByRole("dialog", { name: "Edit Title" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toHaveValue("你好");
   });
 });
