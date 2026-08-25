@@ -1,6 +1,7 @@
 import { createSignal, For, Show, Switch, Match, type JSX } from "solid-js";
 import { useClipboard } from "solidjs-use";
 import ThemeToggle from "./components/ThemeToggle";
+import TranslationToggle from "./components/TranslationToggle";
 import { createTheme } from "./lib/use-theme";
 import type { Word, ParseResponse, SavedResult } from "./lib/types";
 import { createResultStore } from "./lib/result-store";
@@ -46,6 +47,11 @@ export default function App(): JSX.Element {
   // can be changed via the dropdown in the results view.
   const [hanziVariant, setHanziVariant] =
     createSignal<HanziVariant>("original");
+
+  // Whether English translations are shown below the pinyin in the
+  // parsed-text display. Defaults to off so the display stays clean;
+  // the switch in the results view header controls it.
+  const [showEnglish, setShowEnglish] = createSignal(false);
 
   const [deletePendingId, setDeletePendingId] = createSignal<string | null>(
     null,
@@ -142,6 +148,9 @@ export default function App(): JSX.Element {
       // Each newly opened result starts with the original characters,
       // so a previous session's script choice does not leak into it.
       setHanziVariant("original");
+      // The English-translation switch also resets to its default off
+      // state for each newly parsed result.
+      setShowEnglish(false);
       setView("results");
       setText("");
     } catch (err: unknown) {
@@ -226,6 +235,9 @@ export default function App(): JSX.Element {
       // Each newly opened result starts with the original characters,
       // so a previous session's script choice does not leak into it.
       setHanziVariant("original");
+      // The English-translation switch also resets to its default off
+      // state for each newly opened history item.
+      setShowEnglish(false);
       setView("results");
     }
   }
@@ -465,6 +477,20 @@ export default function App(): JSX.Element {
                 {/* Character-variant dropdown — switches every displayed
                     hanzi between the original input, Simplified, and
                     Traditional Chinese. */}
+                <div class="flex items-center gap-1.5">
+                  {/* English-translation switch — when on, the English
+                      translation of each word is shown below its pinyin. */}
+                  <TranslationToggle
+                    checked={showEnglish}
+                    onChange={setShowEnglish}
+                  />
+                  <span
+                    class="text-sm text-muted-foreground select-none"
+                    aria-hidden="true"
+                  >
+                    English
+                  </span>
+                </div>
                 <select
                   value={hanziVariant()}
                   onChange={handleVariantChange}
@@ -590,6 +616,11 @@ export default function App(): JSX.Element {
                           <span class="hanzi">{displayHanzi(word)}</span>
                           <Show when={isHanziWord(word)}>
                             <span class="pinyin">{word.pinyin}</span>
+                          </Show>
+                          {/* English translation — only rendered when
+                              the switch in the header is toggled on. */}
+                          <Show when={showEnglish() && isHanziWord(word)}>
+                            <span class="english">{word.english}</span>
                           </Show>
 
                           <Show when={activeWordIndex() === index()}>

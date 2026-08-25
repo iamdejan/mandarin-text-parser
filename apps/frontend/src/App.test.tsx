@@ -1153,4 +1153,98 @@ describe("App", function appDescribe() {
 
     expect(writeTextSpy).toHaveBeenCalledWith("漢語 (hànyǔ): Chinese language");
   });
+
+  // ---------- English-translation switch tests ----------
+
+  it("renders the English-translation switch in the off state by default", async function translationSwitchOffByDefault() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    const toggle = screen.getByRole("switch", {
+      name: "Show English translation",
+    });
+    expect(toggle).toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("does not show English translations when the switch is off", async function hidesEnglishWhenOff() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    // No English translation text node should be rendered while the
+    // switch is off (the default).
+    expect(screen.queryByText("hello")).not.toBeInTheDocument();
+  });
+
+  it("shows English translations below pinyin when the switch is toggled on", async function showsEnglishWhenOn() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    await user.click(
+      screen.getByRole("switch", { name: "Show English translation" }),
+    );
+
+    // English translations become visible...
+    expect(screen.getByText("hello")).toBeInTheDocument();
+
+    // ...and are rendered inside the parsed-word span, after the
+    // pinyin element.
+    const helloWord = screen.getByTitle("hello").closest(".parsed-word");
+    expect(helloWord).not.toBeNull();
+    const pinyinEl = helloWord!.querySelector(".pinyin");
+    const englishEl = helloWord!.querySelector(".english");
+    expect(pinyinEl).not.toBeNull();
+    expect(englishEl).not.toBeNull();
+    // "Below pinyin" means the English node follows the pinyin node in
+    // document order within the same flex-column word container.
+    expect(pinyinEl!.nextElementSibling).toBe(englishEl);
+  });
+
+  it("hides English translations again when the switch is toggled back off", async function hidesEnglishWhenToggledBackOff() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    const toggle = screen.getByRole("switch", {
+      name: "Show English translation",
+    });
+    await user.click(toggle);
+    expect(screen.getByText("hello")).toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(screen.queryByText("hello")).not.toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("resets the switch to off when a result is reopened from history", async function resetsSwitchOnReopen() {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ words: mockWords }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(() => <App />);
+    const textarea = screen.getByLabelText("Mandarin text");
+    await user.type(textarea, "你好");
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+
+    // Turn the switch on, then close the results view.
+    await user.click(
+      screen.getByRole("switch", { name: "Show English translation" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    // Re-open the same result from history.
+    await user.click(screen.getByText("你好"));
+    await screen.findByRole("heading", { name: "Parsed Result" });
+
+    // The switch must be back to its default off state and the
+    // translations must be hidden again.
+    const toggle = screen.getByRole("switch", {
+      name: "Show English translation",
+    });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByText("hello")).not.toBeInTheDocument();
+  });
 });

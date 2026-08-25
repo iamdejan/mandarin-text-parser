@@ -81,6 +81,18 @@ body {
   border-radius: 0 0 50% 50%;
 }
 
+/*
+ * English translation shown below the pinyin when the translation
+ * switch is toggled on. Sized smaller than the pinyin and muted so it
+ * does not compete with the hanzi, but still scaled with the zoom
+ * control like the rest of the parsed display.
+ */
+.english {
+  font-size: calc(0.625rem * var(--font-scale, 1));
+  line-height: 1.25;
+  color: var(--color-muted-foreground);
+}
+
 /* ---------- Mobile click popup ---------- */
 
 .word-popup {
