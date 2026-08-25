@@ -478,7 +478,14 @@ export default function App(): JSX.Element {
                 <button
                   type="button"
                   onClick={() => {
-                    copy(currentInputText()).catch(() => {});
+                    // Copy the input text converted to the currently
+                    // selected character variant, so what the user sees
+                    // in the results view is what gets copied.
+                    copy(
+                      convertHanzi(currentInputText(), hanziVariant()),
+                    ).catch(() => {
+                      /* clipboard write is best-effort — ignore failures */
+                    });
                   }}
                   aria-label="Copy input text"
                   title="Copy input text"
@@ -533,7 +540,7 @@ export default function App(): JSX.Element {
                     aria-label="Zoom out"
                     class="inline-flex items-center justify-center rounded-l-md px-2 py-1 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    −
+                    -
                   </button>
                   <span
                     class="px-2 py-1 text-xs tabular-nums text-muted-foreground select-none"
