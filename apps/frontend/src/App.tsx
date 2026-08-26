@@ -456,12 +456,16 @@ export default function App(): JSX.Element {
       <Switch>
         {/* ---------- Results view ---------- */}
         <Match when={view() === "results"}>
-          <main class="w-[80%] max-w-5xl rounded-lg border border-border bg-background p-6 shadow-sm sm:p-8">
-            <div class="mb-4 flex items-center justify-between">
+          <main class="w-[90%] max-w-5xl rounded-lg border border-border bg-background p-4 shadow-sm sm:p-8">
+            {/* The header stacks vertically on small screens so the
+                controls never overflow the card horizontally; from `sm`
+                upwards it falls back to the title-left/controls-right
+                row layout. */}
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 class="text-xl font-semibold text-foreground">
                 Parsed Result
               </h2>
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 {/* Character-variant dropdown — switches every displayed
                     hanzi between the original input, Simplified, and
                     Traditional Chinese. */}
