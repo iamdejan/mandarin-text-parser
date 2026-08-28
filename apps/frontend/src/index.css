@@ -93,6 +93,16 @@ body {
   color: var(--color-muted-foreground);
 }
 
+/*
+ * Thin border drawn around each word while the English switch is on.
+ * It uses the theme border token so it stays subtle in both light and
+ * dark mode, and prevents a translation from visually bleeding into
+ * the neighbouring word.
+ */
+.parsed-word.has-english {
+  border: 1px solid var(--color-border);
+}
+
 /* ---------- Mobile click popup ---------- */
 
 .word-popup {

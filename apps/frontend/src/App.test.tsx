@@ -1215,6 +1215,31 @@ describe("App", function appDescribe() {
     expect(toggle).toHaveAttribute("aria-checked", "false");
   });
 
+  it("adds a thin border class to each word when the switch is on", async function addsBorderClassWhenEnglishOn() {
+    const user = userEvent.setup();
+    await navigateToResults(user);
+
+    // Off by default — no word should carry the has-english class.
+    const helloWord = await screen.findByTitle("hello");
+    expect(helloWord).not.toHaveClass("has-english");
+
+    await user.click(
+      screen.getByRole("switch", { name: "Show English translation" }),
+    );
+
+    // Every parsed word should now carry the has-english class so the
+    // stylesheet can draw a thin border around it.
+    const wordElements = document.querySelectorAll(".parsed-word");
+    expect(wordElements.length).toBeGreaterThan(0);
+    wordElements.forEach((word) => expect(word).toHaveClass("has-english"));
+
+    // Toggling back off removes the class again.
+    await user.click(
+      screen.getByRole("switch", { name: "Show English translation" }),
+    );
+    wordElements.forEach((word) => expect(word).not.toHaveClass("has-english"));
+  });
+
   it("resets the switch to off when a result is reopened from history", async function resetsSwitchOnReopen() {
     const user = userEvent.setup();
     const fetchMock = vi

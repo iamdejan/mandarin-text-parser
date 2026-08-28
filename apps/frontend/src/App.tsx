@@ -611,6 +611,11 @@ export default function App(): JSX.Element {
                           class="parsed-word relative inline-flex cursor-pointer flex-col items-center"
                           classList={{
                             "has-pinyin": isHanziWord(word),
+                            // When the English switch is on, every word
+                            // carries this class so CSS can draw a thin
+                            // border around it. This visually separates
+                            // each word's translation from its neighbours.
+                            "has-english": showEnglish(),
                           }}
                           title={word.english}
                           onClick={() => handleWordClick(index())}
