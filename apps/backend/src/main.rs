@@ -149,7 +149,7 @@ You are an expert in Mandarin and English, with over 20 years of experience. You
   * Compound Directional Complements (Verb + 复合趋向补语): When direction verbs like 进, 出, 上, 下, 回, 过, 起 are paired with 来 or 去 after an action verb, combine all three components into one word.
     Examples: 跑出来 (to run out), 拿出来 (to take out), 走进去 (to walk in), 站起来 (to stand up), 搬过去 (to move over).
   * Exception for Separated Objects: If an object is inserted inside the complement (e.g., 拿出一本书来 or 跑进房间去), group the verb and directional prefix (e.g., 拿出) as one word, the object (一本书) separately, and the final direction marker (来) as its own marker.
-- New lines should be respected. Insert {"hanzi":"\n","pinyin":"\n","english":"\n"} for every new line from the input. See Example 11 for example.
+- New lines should be respected, including empty line. Insert {"hanzi":"\n","pinyin":"\n","english":"\n"} for every new line from the input. See Example 11 for example.
 - Punctuations should be respected. For example, for a full stop, insert {"hanzi":"。","pinyin":".","english":"."}, with "。" from Chinese keyboard is used. Similarly, for a comma, insert {"hanzi":"，","pinyin":",","english":","}, with "，" from Chinese keyboard is used.
 
 I've included some examples to help you understand:
@@ -278,7 +278,7 @@ Output:
 {"words":[{"hanzi":"团团圆圆","pinyin":"tuántuán yuányuán","english":"round and round; reunited (as a family)"},{"hanzi":"\n","pinyin":"\n","english":"\n"},{"hanzi":"开开心心","pinyin":"kāikāi xīnxīn","english":"happy and joyful"},{"hanzi":"乐","pinyin":"lè","english":"to be happy; to enjoy"},{"hanzi":"团圆","pinyin":"tuányuán","english":"reunion"},{"hanzi":"\n","pinyin":"\n","english":"\n"},{"hanzi":"\n","pinyin":"\n","english":"\n"},{"hanzi":"一家","pinyin":"yì jiā","english":"the whole family"},{"hanzi":"大小","pinyin":"dàxiǎo","english":"old and young; all members"},{"hanzi":"迎","pinyin":"yíng","english":"to welcome"},{"hanzi":"新年","pinyin":"xīnnián","english":"New Year"},{"hanzi":"\n","pinyin":"\n","english":"\n"},{"hanzi":"幸福","pinyin":"xìngfú","english":"happiness"},{"hanzi":"快乐","pinyin":"kuàilè","english":"happy; joyful"},{"hanzi":"每一天","pinyin":"měi yì tiān","english":"every day"}]}
 
 Some explanations for this example:
-- Pay attention to the new line. Each new line should be adhered.
+- Pay attention to the new line. Each new line should be adhered. If there's an empty line between lines, do not trim it.
 
 STRICTLY return the response following the format from this JSON schema: {response_schema}
 "#;
