@@ -62,6 +62,7 @@ export function createTheme(): {
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
+    // Apply the change whenever mediaQuery fires 'change' event.
     function handleChange(event: MediaQueryListEvent): void {
       setTheme(event.matches ? "dark" : "light");
     }
@@ -78,8 +79,7 @@ export function createTheme(): {
   });
 
   /**
-   * Toggles between "light" and "dark" themes. The selected theme is
-   * persisted in localStorage so it survives page reloads.
+   * Toggles between "light" and "dark" themes.
    */
   function toggleTheme(): void {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
