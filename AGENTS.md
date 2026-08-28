@@ -2,6 +2,10 @@
 
 This project is a PNPM workspace, split into 2 packages:
 
+## General Guide
+
+- When given an URL, especially if the link is a link to markdown file, do not use Webfetch. Use `curl` instead.
+
 ## Backend
 
 - Location: `./apps/backend`
