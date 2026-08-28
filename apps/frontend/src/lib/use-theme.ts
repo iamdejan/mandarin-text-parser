@@ -2,8 +2,6 @@ import { createSignal, onMount, createEffect, Accessor } from "solid-js";
 
 export type Theme = "light" | "dark";
 
-const THEME_KEY = "theme-preference";
-
 /**
  * Retrieves the user's system-level theme preference by querying the
  * `prefers-color-scheme` media query. Defaults to "light" when the
@@ -21,50 +19,13 @@ function getSystemTheme(): Theme {
 }
 
 /**
- * Reads a previously persisted theme from localStorage, if any.
- *
- * @returns The stored theme value, or `null` when not found / invalid.
- */
-function getStoredTheme(): Theme | null {
-  if (typeof localStorage === "undefined") {
-    return null;
-  }
-
-  const stored = localStorage.getItem(THEME_KEY);
-  if (stored === "light" || stored === "dark") {
-    return stored;
-  }
-
-  return null;
-}
-
-/**
- * Returns the theme that should be applied on initial page load.
- *
- * Priority:
- * 1. User's persisted choice (localStorage).
- * 2. System-level OS preference (`prefers-color-scheme`).
- * 3. Default "light".
- *
- * @returns The initial theme.
- */
-function getInitialTheme(): Theme {
-  const stored = getStoredTheme();
-  return stored ?? getSystemTheme();
-}
-
-/**
  * Composable hook that manages light / dark theme toggling for a SolidJS
  * application.
  *
  * ## Behaviour
- * - Reads the initial theme from `localStorage`, then falls back to the OS
- *   preference.
  * - Applies / removes the `"dark"` class on `<html>` and sets
  *   `data-kb-theme`.
- * - Listens for OS-level theme changes and auto-switches **only** when
- *   the user has not manually set a preference.
- * - Persists the user-chosen theme to `localStorage`.
+ * - Listens for OS-level theme changes and auto-switches.
  *
  * @returns An object with:
  *  - `theme` – a reactive signal holding the current theme.
@@ -74,7 +35,7 @@ export function createTheme(): {
   theme: Accessor<Theme>;
   toggleTheme: () => void;
 } {
-  const [theme, setTheme] = createSignal<Theme>(getInitialTheme());
+  const [theme, setTheme] = createSignal<Theme>(getSystemTheme());
 
   /**
    * Applies the given theme to the DOM by setting the appropriate CSS
@@ -95,17 +56,15 @@ export function createTheme(): {
 
   // Apply the initial theme once the component is mounted and set up a
   // listener for system-level theme changes so the UI stays in sync
-  // when the OS preference changes (only when no user preference exists).
+  // when the OS preference changes.
   onMount(() => {
     applyTheme(theme());
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
+    // Apply the change whenever mediaQuery fires 'change' event.
     function handleChange(event: MediaQueryListEvent): void {
-      const stored = getStoredTheme();
-      if (!stored) {
-        setTheme(event.matches ? "dark" : "light");
-      }
+      setTheme(event.matches ? "dark" : "light");
     }
 
     mediaQuery.addEventListener("change", handleChange);
@@ -120,19 +79,11 @@ export function createTheme(): {
   });
 
   /**
-   * Toggles between "light" and "dark" themes. The selected theme is
-   * persisted in localStorage so it survives page reloads.
+   * Toggles between "light" and "dark" themes.
    */
   function toggleTheme(): void {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
   }
-
-  // Persist the current theme to localStorage whenever it changes.
-  createEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(THEME_KEY, theme());
-    }
-  });
 
   return {
     theme,
