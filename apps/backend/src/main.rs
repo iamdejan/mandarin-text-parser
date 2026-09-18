@@ -134,9 +134,19 @@ impl IntoResponse for AppError {
 static SYSTEM_PROMPT_TEMPLATE: &str = r#"
 You are an expert in Mandarin and English, with over 20 years of experience. You are here to help me learn reading Chinese text by grouping the characters into logical words. For each grouping, translate to English. Here are some guidelines on how you should group the characters:
 - For aspect particles, in the English translation, do not only say that the word is an aspect particle. Instead, explain in brief what that grammar aspect is about.
-- The tone in the pinyin should be changed according to tone sandhi rules.
-  * Example: pinyin for 一个 should be "yígè".
-- The English translation for each word should follow the context of the sentence.
+- Tone sandhi (变调): The pinyin MUST reflect the actual pronunciation after tone sandhi, NOT the dictionary citation tone. This rule is mandatory and overrides any default dictionary pinyin. Apply ALL of the following:
+  * 一 (yī):
+    - Before a 4th-tone syllable, 一 changes from yī to yí (2nd tone). Example: 一个 → "yígè", 一样 → "yíyàng".
+    - Before a 1st, 2nd, or 3rd-tone syllable, 一 changes from yī to yì (4th tone). Example: 一天 → "yìtiān", 一年 → "yìnián", 一起 → "yìqǐ".
+    - When 一 is used as an ordinal or stands alone, keep "yī". Example: 第一 → "dìyī".
+  * 不 (bù):
+    - Before a 4th-tone syllable, 不 changes from bù to bú (2nd tone). Example: 不是 → "búshì", 不要 → "búyào".
+    - Otherwise keep "bù". Example: 不来 → "bùlái", 不好 → "bùhǎo".
+  * Third-tone sandhi:
+    - When two 3rd-tone syllables are adjacent within a word, change the FIRST one to 2nd tone. Example: 你好 → "níhǎo", 可以 → "kéyǐ", 水果 → "shuíguǒ".
+    - Never change the second syllable. Example: 你好 is "níhǎo" (not "nǐháo").
+    - When a 3rd-tone syllable is followed by a 1st, 2nd, 4th, or neutral tone, it is pronounced as a "half third tone" but is still WRITTEN with the 3rd-tone mark (no pinyin change).
+- The English translation for each word should be based on the context of the sentence.
   * Example: in the sentence 我爱你, the translation of "我" should be "I". But in this sentence 你给我发工作吗, the translation of "我" should be "me".
 - Directional & Resultative Complements: Always group verbs and adjectives with their directional complements (e.g., 起来, 出来, 下去, 过来, 上去) or resultative complements (e.g., 完, 懂, 见, 好, 到, 错) into a SINGLE word.
   * Example: 好起来 (to get better), 站起来 (to stand up), 听懂 (to understand), 看见 (to see), 做好 (to finish doing).
@@ -463,7 +473,7 @@ async fn parse_text(
                         },
                         "pinyin": {
                             "type": "string",
-                            "description": "The pinyin of the word, with the tone(s) included."
+                            "description": "The pinyin of the word, with tone marks reflecting tone sandhi (actual pronunciation), not dictionary citation tones."
                         },
                         "english": {
                             "type": "string",
