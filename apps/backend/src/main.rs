@@ -1,4 +1,4 @@
-use std::{env, time::Duration};
+use std::env;
 
 use axum::{
     Json, Router,
@@ -394,8 +394,7 @@ async fn send_openrouter_chat_completion(
             format!("{openrouter_base_url}/chat/completions"),
         )
         .header("Authorization", format!("Bearer {openrouter_api_key}"))
-        .json(&request_body)
-        .timeout(Duration::from_secs_f64(2.9 * 60.0));
+        .json(&request_body);
     let response = request.send().await.map_err(|e| {
         return AppError::Internal(format!("HTTP request to OpenRouter failed: {e}"));
     })?;
