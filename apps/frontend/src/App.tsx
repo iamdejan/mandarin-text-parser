@@ -122,8 +122,14 @@ export default function App(): JSX.Element {
     setWords([]);
     setActiveWordIndex(null);
 
+    const inferenceTimeLimitInMinutes = Number.parseInt(
+      import.meta.env["VITE_INFERENCE_TIME_LIMIT_IN_MINUTES"],
+    );
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120_000);
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      inferenceTimeLimitInMinutes * 60_000,
+    );
 
     try {
       const response = await fetch(`${baseUrl}/text/parse`, {
@@ -156,7 +162,7 @@ export default function App(): JSX.Element {
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === "AbortError") {
         setError(
-          "Request timed out after 2 minutes. Please try again with shorter text.",
+          `Request timed out after ${inferenceTimeLimitInMinutes} minutes. Please try again with shorter text.`,
         );
       } else {
         const message =
