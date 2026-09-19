@@ -395,7 +395,7 @@ async fn send_openrouter_chat_completion(
         )
         .header("Authorization", format!("Bearer {openrouter_api_key}"))
         .json(&request_body)
-        .timeout(Duration::from_mins(2));
+        .timeout(Duration::from_secs_f64(2.9 * 60.0));
     let response = request.send().await.map_err(|e| {
         return AppError::Internal(format!("HTTP request to OpenRouter failed: {e}"));
     })?;
